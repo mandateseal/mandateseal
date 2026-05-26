@@ -1,0 +1,73 @@
+// MandateSeal — SQLite schema for local MVP.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Agent {
+  id          String    @id
+  name        String
+  role        String
+  apiKeyHash  String    @unique
+  status      String    @default("active")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  mandates    Mandate[]
+  receipts    Receipt[]
+}
+
+model Mandate {
+  id                        String    @id
+  agentId                   String
+  name                      String
+  enabled                   Boolean   @default(true)
+  dailyBudgetUsd            Float     @default(0)
+  maxCostPerActionUsd       Float     @default(0)
+  approvalThresholdUsd      Float     @default(0)
+  allowedTools              String    @default("[]")
+  blockedTools              String    @default("[]")
+  blockedActions            String    @default("[]")
+  approvalRequiredActions   String    @default("[]")
+  allowedDomains            String    @default("[]")
+  blockedDomains            String    @default("[]")
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+
+  agent     Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  receipts  Receipt[]
+
+  @@index([agentId])
+}
+
+model Receipt {
+  id           String   @id
+  agentId      String
+  mandateId    String
+  actionType   String
+  tool         String
+  target       String
+  costUsd      Float    @default(0)
+  decision     String
+  reason       String
+  matchedRule  String
+  riskLevel    String
+  timestamp    DateTime @default(now())
+  policyHash   String
+  receiptHash  String
+  signature    String
+  rawPayload   String
+  createdAt    DateTime @default(now())
+
+  agent     Agent   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  mandate   Mandate @relation(fields: [mandateId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([mandateId])
+  @@index([timestamp])
+}
