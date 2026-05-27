@@ -71,13 +71,22 @@ Receipts get tamper-evident external proof.
 
 ## v0.6 — Agent Reputation
 
-Status: Planned
+Status: Implemented
 
-Wallet-keyed history becomes an asset.
+Receipt history becomes a public asset.
 
-- Reputation score per `agentWallet` (clean history, deny rate, total verified actions, anchored count)
-- Public agent registry (anyone can look up a wallet's MandateSeal history)
-- Stake → boost reputation, slash on denied actions or post-incident challenges
+- Pure reputation calculator: `calculateReputation(stats) → { score, tier, breakdown }`
+- Score components: volume, anchored ratio, approval ratio², block penalty, longevity, recency — all surfaced in the breakdown so a third party can re-derive the score
+- Tier labels: TRUSTED (80+) · ACTIVE (60+) · EMERGING (30+) · NEW
+- Public endpoint `GET /api/agents/:id/reputation` — no auth, anyone can pull
+- `/a/[id]` public agent page now leads with reputation panel + breakdown + ratios
+- `/agents` dashboard adds a reputation column linking to the public page
+
+Remaining:
+
+- Wallet-keyed aggregation across agents that share an `agentWallet`
+- Stake / slash mechanics (deferred to v1.0 Protocol Layer)
+- Per-mandate trust scores (today reputation is per-agent only)
 
 ## v0.7 — Developer SDK
 
@@ -119,7 +128,7 @@ MandateSeal as a public protocol rather than a hosted service.
 | v0.3    | Crypto Action Simulator    | Implemented   |
 | v0.4    | Public Receipt Explorer    | Beta          |
 | v0.5    | Onchain Anchors            | Implemented   |
-| v0.6    | Agent Reputation           | Planned       |
+| v0.6    | Agent Reputation           | Implemented   |
 | v0.7    | Developer SDK              | Implemented   |
 | v0.8    | Tool / MCP Gateway         | Experimental  |
 | v1.0    | Protocol Layer             | Planned       |

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { publicReceipt, redactedReceipt } from "@/lib/serialize";
 import { StatTile } from "@/components/StatTile";
 import { fmtTimestamp } from "@/lib/fmt";
+import { calculateReputation, type ReputationTier } from "@/lib/reputation";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ async function loadAgent(id: string) {
   });
   if (!agent) return null;
 
-  const [counts, totals, recent] = await Promise.all([
+  const [counts, totals, recent, anchoredCount, span] = await Promise.all([
     prisma.receipt.groupBy({
       by: ["decision"],
       where: { agentId: id },
@@ -37,16 +38,45 @@ async function loadAgent(id: string) {
       orderBy: { timestamp: "desc" },
       take: RECENT_LIMIT,
     }),
+    prisma.receipt.count({
+      where: { agentId: id, anchorBatchId: { not: null } },
+    }),
+    prisma.receipt.aggregate({
+      where: { agentId: id },
+      _min: { timestamp: true },
+      _max: { timestamp: true },
+    }),
   ]);
+
+  const countsByDecision = Object.fromEntries(counts.map((c) => [c.decision, c._count._all])) as Record<string, number>;
+  const total = totals._count._all;
+  const reputation = calculateReputation({
+    total,
+    approved: countsByDecision.APPROVED ?? 0,
+    blocked: countsByDecision.BLOCKED ?? 0,
+    needsApproval: countsByDecision.NEEDS_APPROVAL ?? 0,
+    anchored: anchoredCount,
+    firstSeenAt: span._min.timestamp,
+    lastSeenAt: span._max.timestamp,
+  });
 
   return {
     agent,
-    counts: Object.fromEntries(counts.map((c) => [c.decision, c._count._all])) as Record<string, number>,
-    total: totals._count._all,
+    counts: countsByDecision,
+    total,
     totalCostUsd: totals._sum.costUsd ?? 0,
     recent: recent.map(publicReceipt).map(redactedReceipt),
+    anchoredCount,
+    reputation,
   };
 }
+
+const tierTone: Record<ReputationTier, string> = {
+  TRUSTED: "text-green",
+  ACTIVE: "text-amber",
+  EMERGING: "text-paper",
+  NEW: "text-paperMuted",
+};
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const data = await loadAgent(params.id);
@@ -73,11 +103,12 @@ export default async function PublicAgentPage({ params }: PageProps) {
   const data = await loadAgent(params.id);
   if (!data) notFound();
 
-  const { agent, counts, total, totalCostUsd, recent } = data;
+  const { agent, counts, total, totalCostUsd, recent, anchoredCount, reputation } = data;
   const approved = counts.APPROVED ?? 0;
   const blocked = counts.BLOCKED ?? 0;
   const needs = counts.NEEDS_APPROVAL ?? 0;
   const blockedRate = total === 0 ? 0 : Math.round((blocked / total) * 100);
+  const tone = tierTone[reputation.tier];
 
   return (
     <div className="page-container py-10 max-w-4xl space-y-6">
@@ -93,11 +124,43 @@ export default async function PublicAgentPage({ params }: PageProps) {
         </div>
       </header>
 
-      <section className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <section className="border border-line bg-ink/95 font-tech text-paper">
+        <div className="border-b border-line px-4 py-2.5 flex items-center justify-between">
+          <span className="text-[11px] uppercase tracking-[0.22em] text-paperMuted">
+            &gt; reputation
+          </span>
+          <span className={`text-[11px] uppercase tracking-[0.22em] ${tone}`}>
+            tier · {reputation.tier}
+          </span>
+        </div>
+        <div className="px-4 py-5 flex items-center gap-6 flex-wrap">
+          <div>
+            <div className="label text-paperMuted">score</div>
+            <div className={`mt-1 font-display text-4xl tracking-[0.04em] ${tone}`}>
+              {reputation.score}
+              <span className="text-[14px] text-paperMuted ml-1">/100</span>
+            </div>
+          </div>
+          <div className="flex-1 min-w-[220px] grid grid-cols-2 gap-3 text-[11px]">
+            <BreakdownRow label="volume" value={reputation.breakdown.volume} />
+            <BreakdownRow label="anchored" value={reputation.breakdown.anchored} />
+            <BreakdownRow label="approval ratio" value={reputation.breakdown.approvalRatio} />
+            <BreakdownRow label="block penalty" value={reputation.breakdown.blockPenalty} />
+            <BreakdownRow label="longevity" value={reputation.breakdown.longevity} />
+            <BreakdownRow label="recency" value={reputation.breakdown.recency} />
+          </div>
+        </div>
+        <div className="border-t border-line px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-paperMuted">
+          {reputation.daysActive}d active · {Math.round(reputation.ratios.approved * 100)}% approved · {Math.round(reputation.ratios.anchored * 100)}% anchored · last seen {reputation.daysSinceLastSeen === 0 ? "today" : `${reputation.daysSinceLastSeen}d ago`}
+        </div>
+      </section>
+
+      <section className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <StatTile label="total decisions" value={total} />
         <StatTile label="approved" value={approved} tone="text-green" />
         <StatTile label="blocked" value={blocked} tone="text-red" />
         <StatTile label="needs approval" value={needs} tone="text-amber" />
+        <StatTile label="anchored" value={anchoredCount} tone="text-paper" />
         <StatTile label="total cost (usd)" value={`$${totalCostUsd.toFixed(2)}`} />
       </section>
 
@@ -157,6 +220,18 @@ export default async function PublicAgentPage({ params }: PageProps) {
           <Link href="/docs" className="text-amber hover:underline">docs</Link> for the one-liner.
         </p>
       </section>
+    </div>
+  );
+}
+
+function BreakdownRow({ label, value }: { label: string; value: number }) {
+  const sign = value > 0 ? "+" : "";
+  const tone =
+    value > 0 ? "text-green" : value < 0 ? "text-red" : "text-paperMuted";
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="uppercase tracking-[0.18em] text-paperMuted">{label}</span>
+      <span className={`font-tech ${tone}`}>{sign}{value}</span>
     </div>
   );
 }

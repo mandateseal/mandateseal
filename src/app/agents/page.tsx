@@ -3,11 +3,85 @@ import { prisma } from "@/lib/db";
 import { publicAgent } from "@/lib/serialize";
 import { AgentRow } from "@/components/AgentRow";
 import { SectionSubNav, AGENTS_TABS } from "@/components/SectionSubNav";
+import { calculateReputation, type ReputationResult } from "@/lib/reputation";
 
 export const dynamic = "force-dynamic";
 
+async function loadReputationMap(ids: string[]): Promise<Record<string, ReputationResult>> {
+  if (ids.length === 0) return {};
+  const [byDecision, anchorCounts, spans] = await Promise.all([
+    prisma.receipt.groupBy({
+      by: ["agentId", "decision"],
+      where: { agentId: { in: ids } },
+      _count: { _all: true },
+    }),
+    prisma.receipt.groupBy({
+      by: ["agentId"],
+      where: { agentId: { in: ids }, anchorBatchId: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.receipt.groupBy({
+      by: ["agentId"],
+      where: { agentId: { in: ids } },
+      _min: { timestamp: true },
+      _max: { timestamp: true },
+      _count: { _all: true },
+    }),
+  ]);
+
+  type Stat = {
+    approved: number;
+    blocked: number;
+    needsApproval: number;
+    anchored: number;
+    total: number;
+    firstSeenAt: Date | null;
+    lastSeenAt: Date | null;
+  };
+  const stats: Record<string, Stat> = {};
+  const init = (): Stat => ({
+    approved: 0,
+    blocked: 0,
+    needsApproval: 0,
+    anchored: 0,
+    total: 0,
+    firstSeenAt: null,
+    lastSeenAt: null,
+  });
+  for (const id of ids) stats[id] = init();
+  for (const r of byDecision) {
+    const s = stats[r.agentId] ?? (stats[r.agentId] = init());
+    if (r.decision === "APPROVED") s.approved += r._count._all;
+    else if (r.decision === "BLOCKED") s.blocked += r._count._all;
+    else if (r.decision === "NEEDS_APPROVAL") s.needsApproval += r._count._all;
+  }
+  for (const r of anchorCounts) {
+    (stats[r.agentId] ?? init()).anchored = r._count._all;
+  }
+  for (const r of spans) {
+    const s = stats[r.agentId] ?? (stats[r.agentId] = init());
+    s.total = r._count._all;
+    s.firstSeenAt = r._min.timestamp;
+    s.lastSeenAt = r._max.timestamp;
+  }
+
+  const out: Record<string, ReputationResult> = {};
+  for (const id of ids) {
+    out[id] = calculateReputation(stats[id]);
+  }
+  return out;
+}
+
+const tierTone: Record<string, string> = {
+  TRUSTED: "text-green",
+  ACTIVE: "text-amber",
+  EMERGING: "text-paper",
+  NEW: "text-paperMuted",
+};
+
 export default async function AgentsPage() {
   const agents = await prisma.agent.findMany({ orderBy: { createdAt: "asc" } });
+  const repMap = await loadReputationMap(agents.map((a) => a.id));
 
   return (
     <div className="page-container py-10">
@@ -43,13 +117,19 @@ export default async function AgentsPage() {
                 <th className="px-4 py-3 label">ROLE</th>
                 <th className="px-4 py-3 label">ID</th>
                 <th className="px-4 py-3 label">STATUS</th>
+                <th className="px-4 py-3 label">REPUTATION</th>
                 <th className="px-4 py-3 label">CREATED</th>
                 <th className="px-4 py-3 label">ACTIONS</th>
               </tr>
             </thead>
             <tbody>
               {agents.map(publicAgent).map((a) => (
-                <AgentRow key={a.id} agent={a} />
+                <AgentRow
+                  key={a.id}
+                  agent={a}
+                  reputation={repMap[a.id]}
+                  reputationTone={tierTone[repMap[a.id]?.tier ?? "NEW"] ?? "text-paperMuted"}
+                />
               ))}
             </tbody>
           </table>

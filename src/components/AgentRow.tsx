@@ -1,7 +1,9 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { fmtTimestamp } from "@/lib/fmt";
+import type { ReputationResult } from "@/lib/reputation";
 
 interface Agent {
   id: string;
@@ -11,7 +13,15 @@ interface Agent {
   createdAt: string;
 }
 
-export function AgentRow({ agent }: { agent: Agent }) {
+export function AgentRow({
+  agent,
+  reputation,
+  reputationTone,
+}: {
+  agent: Agent;
+  reputation?: ReputationResult;
+  reputationTone?: string;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState<"rotate" | "delete" | null>(null);
   const [freshKey, setFreshKey] = useState<string | null>(null);
@@ -63,6 +73,20 @@ export function AgentRow({ agent }: { agent: Agent }) {
         <td className="px-4 py-3">{agent.role}</td>
         <td className="px-4 py-3"><code className="text-paperMuted">{agent.id}</code></td>
         <td className="px-4 py-3 text-green">● {agent.status}</td>
+        <td className="px-4 py-3 whitespace-nowrap">
+          {reputation ? (
+            <Link href={`/a/${agent.id}`} className="hover:underline">
+              <span className={reputationTone ?? "text-paperMuted"}>
+                {reputation.score}<span className="text-paperMuted">/100</span>
+              </span>
+              <span className={`ml-2 text-[10px] uppercase tracking-[0.18em] ${reputationTone ?? "text-paperMuted"}`}>
+                {reputation.tier}
+              </span>
+            </Link>
+          ) : (
+            <span className="text-paperMuted">—</span>
+          )}
+        </td>
         <td className="px-4 py-3 text-paperMuted whitespace-nowrap">{fmtTimestamp(agent.createdAt)}</td>
         <td className="px-4 py-3 whitespace-nowrap">
           <div className="flex gap-2">
@@ -77,7 +101,7 @@ export function AgentRow({ agent }: { agent: Agent }) {
       </tr>
       {freshKey && (
         <tr className="border-t border-line">
-          <td colSpan={6} className="px-4 py-4 bg-paper/[0.03]">
+          <td colSpan={7} className="px-4 py-4 bg-paper/[0.03]">
             <div className="label text-amber">⚠ NEW API KEY · SHOWN ONCE</div>
             <code className="font-tech text-[12px] text-paper break-all block mt-2">{freshKey}</code>
             <button onClick={copyKey} className="command-button accent mt-3">

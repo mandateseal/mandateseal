@@ -862,7 +862,7 @@ These are **deliberate omissions** in v0.1 — see [docs/ROADMAP.md](docs/ROADMA
 - ✅ **Dashboard auth** — Sign-In with Ethereum (EIP-4361); env allowlist (`MANDATESEAL_ADMIN_ADDRESSES`); cookie session; middleware enforces
 - ✅ **Onchain anchoring (v0.5)** — Base / Base Sepolia broadcast via signer wallet, no contract; calldata format `MS01 | batchIndex | prevRoot | root`
 - ✅ **Rate-limiting** — in-memory sliding window on `/api/check`, `/api/auth/*`, `/api/anchor`, `/api/verify`, `/api/proxy`; per-instance (swap for Upstash Redis for adversary-grade)
-- ❌ **Agent reputation (v0.6)** — wallet-keyed history → trust score not yet shipped
+- ✅ **Agent reputation (v0.6)** — public score + tier per agent computed from receipt history (volume, anchored ratio, approval², block penalty, longevity, recency); exposed at `GET /api/agents/:id/reputation` and surfaced on `/a/:id` + `/agents`
 - ❌ **MCP server adapter (v0.8)** — Tool gateway exists; MCP-native endpoint planned
 - ❌ **Execution-outcome receipt** — preflight is sealed; post-tool outcome receipt deferred to v0.8
 - ❌ **Multi-tenant / org isolation** — single global namespace (v1.0 Protocol Layer)
@@ -889,7 +889,7 @@ Status labels:
 | **v0.3** | Crypto Action Simulator    | Implemented   |
 | **v0.4** | Public Receipt Explorer    | Beta          |
 | **v0.5** | Onchain Anchors            | Implemented   |
-| **v0.6** | Agent Reputation           | Planned       |
+| **v0.6** | Agent Reputation           | Implemented   |
 | **v0.7** | Developer SDK              | Implemented   |
 | **v0.8** | Tool / MCP Gateway         | Experimental  |
 | **v1.0** | Protocol Layer             | Planned       |
