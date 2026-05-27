@@ -430,19 +430,32 @@ Delivery envelope (`POST` body):
 }
 ```
 
-### Onchain Anchors (v0.9)
+### Onchain Anchors (v0.9 + v0.9.1)
 
 Receipts get bundled into merkle batches. Every batch's `root` is linked to the previous batch's via `prevRoot`, forming a tamper-evident hash chain. Each anchored receipt can be served a sibling-path proof; anyone (no DB needed) can recompute leaf → path → root and confirm membership.
 
-Current MVP **stores roots locally only**. v0.9.1 will broadcast each root to Base via a dumb `mapping(uint=>bytes32)` contract — then verification becomes "read root from chain, recompute proof" with zero MandateSeal trust.
+**v0.9.1** broadcasts each new root to a public chain (Base / Base Sepolia) as the calldata of a 0-value self-tx from a server-side signer wallet. No smart contract — the tx itself is the immutable record. To verify, anyone fetches the tx from a public RPC, slices the input bytes, and compares to the batch row. Trust ends at the chain, not at MandateSeal.
+
+Calldata format (72 bytes):
+
+```
+0x4d533031              # 4 bytes magic "MS01"
+| uint32 batchIndex     # 4 bytes big-endian
+| bytes32 prevRoot      # 32 bytes
+| bytes32 root          # 32 bytes
+```
+
+Configured by setting `MANDATESEAL_ANCHOR_CHAIN` (`base-sepolia` or `base`), `MANDATESEAL_ANCHOR_RPC_URL`, and `MANDATESEAL_ANCHOR_PRIVATE_KEY` (signer wallet must be funded with gas). When all three set, sealing a batch broadcasts automatically; failure to broadcast does not roll back the seal.
 
 | Method | Path | Auth | Body | Returns |
 |---|---|---|---|---|
-| `GET` | `/api/anchor` | admin | — | `{ batches: [...], pendingReceipts }` |
-| `POST` | `/api/anchor` | admin | — | `{ batch, leafCount }` — seals all unanchored receipts into next batch |
-| `GET` | `/api/anchor/proof?receiptId=X` | admin | — | `{ receiptId, receiptHash, batchIndex, root, prevRoot, proof: [...], leafIndex }` |
-| `POST` | `/api/anchor/verify` | none | `{ receiptHash, proof, root }` | `{ valid }` — standalone, no DB |
-| `GET` | `/api/anchor/audit` | admin | — | `{ scanned, valid, invalid, failures }` — recompute every root + check chain |
+| `GET`  | `/api/anchor`                          | admin | — | `{ batches, pendingReceipts, onchain.configured }` |
+| `POST` | `/api/anchor`                          | admin | — | `{ batch, leafCount, broadcastError }` — seals next batch, broadcasts onchain if configured |
+| `POST` | `/api/anchor/:id/broadcast`            | admin | — | `{ batch }` — retry broadcast for a batch with null `txHash` |
+| `GET`  | `/api/anchor/:id/verify-onchain`       | none  | — | `{ ok, mismatches, onchain }` — fetch tx, decode calldata, compare to DB |
+| `GET`  | `/api/anchor/proof?receiptId=X`        | admin | — | `{ receiptId, receiptHash, batchIndex, root, prevRoot, proof, leafIndex }` |
+| `POST` | `/api/anchor/verify`                   | none  | `{ receiptHash, proof, root }` | `{ valid }` — standalone, no DB |
+| `GET`  | `/api/anchor/audit`                    | admin | — | `{ scanned, valid, invalid, failures }` — recompute every root + check chain |
 
 Merkle construction (compatibility-first so any external verifier can reproduce):
 - leaf hash: `sha256("L:" + leafHex)`
@@ -818,7 +831,7 @@ These are **deliberate omissions** in v0.1 — see [docs/ROADMAP.md](docs/ROADMA
 - ❌ **Rate-limiting on `/api/check`** — none (v0.7)
 - ❌ **Webhooks / push notifications** — poll only (v0.8)
 - ❌ **Multi-tenant / org isolation** — single global namespace (v0.3)
-- ❌ **Onchain anchoring** — no merkle roots on Base yet (v0.9)
+- ✅ **Onchain anchoring** — Base / Base Sepolia broadcast via signer wallet (v0.9.1), no contract
 - 🟡 **Test suite** — 86 Vitest unit tests covering canonical JSON, 10-rule policy engine, Ed25519 sign/verify + tamper, receipt filter, daily-budget enforcement, tool schemas, webhook schemas, merkle tree (build/proof/tamper); API route integration tests deferred
 
 ---
@@ -844,7 +857,7 @@ Status labels:
 | **v0.6** | Spend Ledger | Beta |
 | **v0.7** | Tool Gateway | Experimental |
 | **v0.8** | Webhooks | Experimental |
-| **v0.9** | Receipt Anchors | Experimental |
+| **v0.9** | Receipt Anchors | Beta |
 | **v1.0** | Production Hardening | Planned |
 
 ### Maturity stages

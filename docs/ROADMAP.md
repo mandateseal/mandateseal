@@ -235,9 +235,9 @@ Remaining:
 
 ### v0.9 - Receipt Anchors
 
-Status: Experimental
+Status: Beta
 
-Prepares receipts for tamper-evident external proof.
+Receipts become tamper-evident external proof.
 
 Users can:
 
@@ -245,17 +245,19 @@ Users can:
 - Create merkle roots
 - Verify anchor proofs
 - Audit anchor chains
+- Broadcast each batch root to Base / Base Sepolia (v0.9.1)
+- Verify a batch against the onchain tx (`/api/anchor/:id/verify-onchain`)
+- Follow BaseScan links from the anchor dashboard
 
 Main value:
 
-MandateSeal receipts become stronger proof artifacts.
+MandateSeal receipts are publicly verifiable from a third-party chain — no MandateSeal contact required.
 
 Remaining:
 
-- Base onchain anchoring
-- Transaction hash storage
-- Public chain verification
-- Anchor explorer UX
+- Anchor explorer UX (per-batch detail page with leaf list + proof preview)
+- Batch scheduler (auto-seal every N receipts or M minutes)
+- Multi-chain support beyond Base
 
 ### v1.0 - Production Hardening
 
@@ -298,7 +300,7 @@ agents.
 | v0.6 | Spend Ledger | Beta |
 | v0.7 | Tool Gateway | Experimental |
 | v0.8 | Webhooks | Experimental |
-| v0.9 | Receipt Anchors | Experimental |
+| v0.9 | Receipt Anchors | Beta |
 | v1.0 | Production Hardening | Planned |
 
 ---

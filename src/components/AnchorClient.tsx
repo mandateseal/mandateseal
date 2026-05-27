@@ -12,17 +12,26 @@ interface AuditResult {
   failures: Array<{ batchIndex: number; reasons: string[] }>;
 }
 
+function explorerTxUrl(chain: string | null, txHash: string | null): string | null {
+  if (!chain || !txHash) return null;
+  if (chain === "base") return `https://basescan.org/tx/${txHash}`;
+  if (chain === "base-sepolia") return `https://sepolia.basescan.org/tx/${txHash}`;
+  return null;
+}
+
 export function AnchorClient({
   initialBatches,
   initialPending,
+  onchainConfigured,
 }: {
   initialBatches: AnchorBatchView[];
   initialPending: number;
+  onchainConfigured: boolean;
 }) {
   const router = useRouter();
   const [batches, setBatches] = useState<AnchorBatchView[]>(initialBatches);
   const [pending, setPending] = useState(initialPending);
-  const [busy, setBusy] = useState<"seal" | "audit" | null>(null);
+  const [busy, setBusy] = useState<"seal" | "audit" | string | null>(null);
   const [audit, setAudit] = useState<AuditResult | null>(null);
   const [lastSealed, setLastSealed] = useState<AnchorBatchView | null>(null);
 
@@ -39,6 +48,7 @@ export function AnchorClient({
       setBatches((prev) => [data.batch, ...prev]);
       setLastSealed(data.batch);
       setPending(0);
+      if (data.broadcastError) alert(`Sealed, but onchain broadcast failed: ${data.broadcastError}`);
       router.refresh();
     } finally {
       setBusy(null);
@@ -57,6 +67,22 @@ export function AnchorClient({
     }
   }
 
+  async function broadcastBatch(id: string) {
+    setBusy(`bc-${id}`);
+    try {
+      const res = await fetch(`/api/anchor/${id}/broadcast`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error ?? "Broadcast failed");
+        return;
+      }
+      setBatches((prev) => prev.map((b) => (b.id === id ? data.batch : b)));
+      router.refresh();
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <section className="ink-panel p-5">
@@ -67,6 +93,7 @@ export function AnchorClient({
             <p className="mt-2 text-paperMuted text-sm max-w-xl">
               Bundles every receipt without an anchor into a merkle tree, persists the root, and
               links it to the previous batch's root forming a tamper-evident hash chain.
+              {onchainConfigured && " Each new batch is broadcast to chain automatically."}
             </p>
           </div>
           <button onClick={sealBatch} disabled={busy === "seal" || pending === 0} className="command-button accent">
@@ -152,22 +179,35 @@ export function AnchorClient({
                 </tr>
               </thead>
               <tbody>
-                {batches.map((b) => (
-                  <tr key={b.id} className="border-t border-line text-paper align-top">
-                    <td className="px-3 py-2">#{b.batchIndex}</td>
-                    <td className="px-3 py-2">{b.receiptCount}</td>
-                    <td className="px-3 py-2 break-all max-w-[220px]"><code className="text-paper">{b.root}</code></td>
-                    <td className="px-3 py-2 break-all max-w-[220px]"><code className="text-paperMuted">{b.prevRoot.slice(0, 16)}…</code></td>
-                    <td className="px-3 py-2 text-paperMuted whitespace-nowrap">{fmtTimestamp(b.createdAt)}</td>
-                    <td className="px-3 py-2">
-                      {b.txHash ? (
-                        <span className="text-green">● {b.chain} · {b.txHash.slice(0, 10)}…</span>
-                      ) : (
-                        <span className="text-paperMuted">● local-only (v0.9.1 → broadcast to Base)</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {batches.map((b) => {
+                  const url = explorerTxUrl(b.chain, b.txHash);
+                  return (
+                    <tr key={b.id} className="border-t border-line text-paper align-top">
+                      <td className="px-3 py-2">#{b.batchIndex}</td>
+                      <td className="px-3 py-2">{b.receiptCount}</td>
+                      <td className="px-3 py-2 break-all max-w-[220px]"><code className="text-paper">{b.root}</code></td>
+                      <td className="px-3 py-2 break-all max-w-[220px]"><code className="text-paperMuted">{b.prevRoot.slice(0, 16)}…</code></td>
+                      <td className="px-3 py-2 text-paperMuted whitespace-nowrap">{fmtTimestamp(b.createdAt)}</td>
+                      <td className="px-3 py-2">
+                        {url ? (
+                          <a href={url} target="_blank" rel="noreferrer" className="text-green hover:underline">
+                            ● {b.chain} · {b.txHash!.slice(0, 10)}… ↗
+                          </a>
+                        ) : onchainConfigured ? (
+                          <button
+                            onClick={() => broadcastBatch(b.id)}
+                            disabled={busy === `bc-${b.id}`}
+                            className="text-amber hover:underline disabled:opacity-50"
+                          >
+                            {busy === `bc-${b.id}` ? "broadcasting…" : "● broadcast onchain"}
+                          </button>
+                        ) : (
+                          <span className="text-paperMuted">● local-only</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -175,25 +215,28 @@ export function AnchorClient({
       </section>
 
       <section className="paper-panel p-5">
-        <div className="label">VERIFY A RECEIPT ON-CHAIN (when broadcast in v0.9.1)</div>
+        <div className="label">VERIFY A RECEIPT{onchainConfigured ? " — ON-CHAIN" : ""}</div>
         <p className="mt-2 text-paper text-sm">
-          Get a merkle proof for any anchored receipt:
+          Get a merkle proof for any anchored receipt, then verify against the stored root
+          {onchainConfigured && " — or against the root fetched from the broadcast tx"}.
         </p>
         <pre className="mt-3 ink-panel p-3 font-tech text-[11px] text-paper overflow-x-auto whitespace-pre">
 {`# 1. fetch proof
-curl http://localhost:3000/api/anchor/proof?receiptId=rct_xxx
+curl /api/anchor/proof?receiptId=rct_xxx
 
 # 2. verify standalone (no DB)
-curl -X POST http://localhost:3000/api/anchor/verify \\
+curl -X POST /api/anchor/verify \\
   -H "content-type: application/json" \\
-  -d '{ "receiptHash": "...", "proof": [...], "root": "..." }'`}
+  -d '{ "receiptHash": "...", "proof": [...], "root": "..." }'${
+  onchainConfigured
+    ? `
+
+# 3. confirm the root came from us, onchain
+curl /api/anchor/{batchId}/verify-onchain`
+    : ""
+}`}
         </pre>
-        <p className="mt-3 text-paperMuted text-sm">
-          Once v0.9.1 broadcasts roots to Base, the same proof verifies against the on-chain root
-          read from the anchor contract — no MandateSeal contact required.
-        </p>
       </section>
     </div>
   );
 }
-
