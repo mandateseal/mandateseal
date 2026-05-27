@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { NavBar } from "@/components/NavBar";
 import { Footer } from "@/components/Footer";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "MandateSeal - Approve before. Prove after.",
@@ -24,9 +25,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <NavBar />
-        <main className="min-h-[calc(100vh-9rem)]">{children}</main>
-        <Footer />
+        <Providers>
+          <NavBar />
+          <main className="min-h-[calc(100vh-9rem)]">{children}</main>
+          <Footer />
+        </Providers>
       </body>
     </html>
   );

@@ -224,12 +224,16 @@ DIRECT_URL="postgresql://postgres.<ref>:<pass>@<region>.pooler.supabase.com:5432
 MANDATESEAL_PRIVATE_KEY_B64=""
 MANDATESEAL_PUBLIC_KEY_B64=""
 
-# Leave empty in dev = open dashboard. Set both to enforce cookie login.
-MANDATESEAL_ADMIN_PASSWORD=""
+# Leave empty in dev = open dashboard. Set both to enforce SIWE login.
+# MANDATESEAL_ADMIN_ADDRESSES = comma-separated 0x-addresses allowed to sign in.
+MANDATESEAL_ADMIN_ADDRESSES=""
 MANDATESEAL_SESSION_SECRET=""
+
+# Optional — WalletConnect Cloud project ID for mobile / WC-based wallets.
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=""
 ```
 
-Password tip: keep it alphanumeric + `._-`. Special chars like `@ # $ ? &` need URL-encoding and can confuse Prisma's URL parser.
+Postgres password tip: keep it alphanumeric + `._-`. Special chars like `@ # $ ? &` need URL-encoding and can confuse Prisma's URL parser.
 
 ### Encoding note
 
@@ -462,7 +466,7 @@ Every `NEEDS_APPROVAL` decision automatically opens an `Approval` workflow recor
 
 ### Auth (dashboard)
 
-When `MANDATESEAL_ADMIN_PASSWORD` is set, the dashboard pages and admin API routes require a session cookie obtained via login.
+When `MANDATESEAL_ADMIN_ADDRESSES` is set, the dashboard pages and admin API routes require a SIWE-signed session cookie. The user connects a wallet, signs a nonce-bound message (no gas, no tx), and the server issues an HMAC-MAC'd session cookie if the recovered address is in the allowlist.
 
 | Method | Path | Auth | Body | Returns |
 |---|---|---|---|---|
@@ -625,7 +629,7 @@ Other top-nav pages:
 - `/a/:id` — **public** agent profile with stats + recent receipts
 - `/verify` — paste a receipt JSON or enter an ID to verify
 - `/docs` — quickstart
-- `/login` — when `MANDATESEAL_ADMIN_PASSWORD` is set
+- `/login` — when `MANDATESEAL_ADMIN_ADDRESSES` is set (SIWE / RainbowKit)
 
 ---
 
@@ -807,9 +811,9 @@ These are **deliberate omissions** in v0.1 — see [docs/ROADMAP.md](docs/ROADMA
 - ✅ **Daily budget enforcement** — hard-cap rule: `sumApprovedToday + this.cost > dailyBudgetUsd` → BLOCKED; `/spend` shows per-agent burn
 - ✅ **Human approval queue** — `/approvals` page + `Approval` model + long-poll endpoint
 - ✅ **Asymmetric signatures** — Ed25519, public key at `/api/key.pub`
-- ✅ **Dashboard auth** — env-gated single password (`MANDATESEAL_ADMIN_PASSWORD`); cookie session; middleware enforces
+- ✅ **Dashboard auth** — Sign-In with Ethereum (EIP-4361); env allowlist (`MANDATESEAL_ADMIN_ADDRESSES`); cookie session; middleware enforces
 - ❌ **API key revocation list** — rotation and delete exist, but no audit-trail of revoked keys yet
-- ❌ **Multi-user RBAC** — single shared admin password (v0.2)
+- ❌ **Multi-user RBAC** — single shared address allowlist (v0.2)
 - ❌ **Rate-limiting on `/api/check`** — none (v0.7)
 - ❌ **Webhooks / push notifications** — poll only (v0.8)
 - ❌ **Multi-tenant / org isolation** — single global namespace (v0.3)
@@ -881,9 +885,10 @@ Local dev (`npm run dev`) and local production (`npm run start`) both work out o
 DATABASE_URL=postgresql://...                           # not SQLite for multi-instance
 MANDATESEAL_PRIVATE_KEY_B64=<base64 of PEM>             # required — never auto-generate in prod
 MANDATESEAL_PUBLIC_KEY_B64=<base64 of PEM>              # required — exposed at /api/key.pub
-MANDATESEAL_ADMIN_PASSWORD=<long random>                # required — or dashboard is open
+MANDATESEAL_ADMIN_ADDRESSES=0xAbc...,0xDef...           # required — or dashboard is open
 MANDATESEAL_SESSION_SECRET=<≥8 chars random>            # session cookie HMAC
 MANDATESEAL_BASE_URL=https://your.app                   # used by SDK + share links
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=<wc-project-id>    # optional — for mobile / WC wallets
 ```
 
 Generate keys once: `npm run cli -- gen-keys`. Save both base64 outputs in your platform's secret store.
@@ -955,7 +960,7 @@ Webhook delivery retries (v0.8) and SDK approval long-polls run **in-process** w
 - [ ] `npm test` — 86 unit tests pass
 - [ ] Demo data reset: run `npx prisma migrate reset --force` against the prod DB if you want a fresh state (this **destroys** all data — don't run on a DB that already has real receipts)
 - [ ] Don't ship the seeded Atlas-01 demo key to real users (rotate via `/agents → Rotate Key` or delete and re-create)
-- [ ] `MANDATESEAL_ADMIN_PASSWORD` set; `/dashboard` returns 307 → `/login` without cookie
+- [ ] `MANDATESEAL_ADMIN_ADDRESSES` set; `/dashboard` returns 307 → `/login` without cookie
 - [ ] `MANDATESEAL_PRIVATE_KEY_B64` set; `/api/key.pub` returns the EXPECTED public key
 - [ ] `.mandateseal-keys.json` not in container image (`docker history | grep`)
 - [ ] `.env` not in container image; secrets injected at runtime
@@ -987,7 +992,7 @@ This repo ships a `render.yaml` blueprint. Steps:
    - `DIRECT_URL` — Supabase session URL (port 5432)
    - `MANDATESEAL_PRIVATE_KEY_B64` — generated via `npm run cli -- gen-keys`
    - `MANDATESEAL_PUBLIC_KEY_B64` — same source
-   - `MANDATESEAL_ADMIN_PASSWORD` — long random alphanumeric
+   - `MANDATESEAL_ADMIN_ADDRESSES` — comma-separated 0x-addresses (wallets) allowed to sign in
    - `MANDATESEAL_SESSION_SECRET` — 32+ chars random
    - `MANDATESEAL_BASE_URL` — your `https://<name>.onrender.com` URL
 5. **Deploy**. Render runs the build, which includes `prisma migrate deploy` — your Supabase DB picks up any new migrations automatically

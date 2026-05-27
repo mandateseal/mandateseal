@@ -43,3 +43,5 @@ yarn-error.log*
 
 # Claude Code local state
 .claude/
+
+.vercel

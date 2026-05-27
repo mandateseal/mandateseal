@@ -1,9 +1,10 @@
-// MandateSeal admin auth — single shared password mode (MVP).
+// MandateSeal admin auth — Sign-In with Ethereum (EIP-4361).
 //
-//   env MANDATESEAL_ADMIN_PASSWORD = the password
-//   env MANDATESEAL_SESSION_SECRET = signing secret for the session cookie
+//   env MANDATESEAL_ADMIN_ADDRESSES = comma-separated 0x-addresses (lowercase)
+//                                     that are allowed to sign in.
+//   env MANDATESEAL_SESSION_SECRET  = signing secret for the session cookie.
 //
-// If MANDATESEAL_ADMIN_PASSWORD is empty/unset, the dashboard is OPEN
+// If MANDATESEAL_ADMIN_ADDRESSES is empty/unset, the dashboard is OPEN
 // (development mode).
 //
 // Session cookie format: `<random-token>.<hmac-sha256(token, secret)>`.
@@ -13,15 +14,30 @@
 // it must only use Web-standard crypto APIs. No `node:crypto`.
 
 export const SESSION_COOKIE = "mandateseal_session";
+export const NONCE_COOKIE = "mandateseal_siwe_nonce";
 
 function getSessionSecret(): string {
   const s = process.env.MANDATESEAL_SESSION_SECRET;
   if (s && s.length >= 8) return s;
-  return process.env.MANDATESEAL_ADMIN_PASSWORD ?? "mandateseal-dev-secret";
+  return "mandateseal-dev-secret";
+}
+
+function getAdminAddresses(): string[] {
+  const raw = process.env.MANDATESEAL_ADMIN_ADDRESSES ?? "";
+  return raw
+    .split(",")
+    .map((a) => a.trim().toLowerCase())
+    .filter((a) => /^0x[0-9a-f]{40}$/.test(a));
 }
 
 export function isAuthEnabled(): boolean {
-  return !!process.env.MANDATESEAL_ADMIN_PASSWORD;
+  return getAdminAddresses().length > 0;
+}
+
+export function isAdminAddress(address: string): boolean {
+  const list = getAdminAddresses();
+  if (list.length === 0) return true;
+  return list.includes(address.toLowerCase());
 }
 
 function ctEqual(a: string, b: string): boolean {
@@ -53,10 +69,10 @@ async function hmacHex(secret: string, data: string): Promise<string> {
   return bytesToHex(sig);
 }
 
-export function checkPassword(input: string): boolean {
-  const expected = process.env.MANDATESEAL_ADMIN_PASSWORD ?? "";
-  if (!expected) return true;
-  return ctEqual(input, expected);
+export function generateNonce(): string {
+  const rand = new Uint8Array(16);
+  crypto.getRandomValues(rand);
+  return bytesToHex(rand.buffer);
 }
 
 export async function issueSessionToken(): Promise<string> {
