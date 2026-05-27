@@ -59,6 +59,21 @@ export async function POST(req: Request) {
         approvalRequiredActions: JSON.stringify(DEFAULT_MANDATE.approvalRequiredActions),
         allowedDomains: JSON.stringify(DEFAULT_MANDATE.allowedDomains),
         blockedDomains: JSON.stringify(DEFAULT_MANDATE.blockedDomains),
+        // v0.2 — wallet mandate defaults. Wallet addresses stay null on
+        // first create (the operator wires them in when binding a real
+        // agent wallet); chain/token/contract allowlists + caps mirror
+        // the demo mandate so the crypto simulator works out of the box.
+        agentWallet: null,
+        ownerWallet: null,
+        allowedChains: JSON.stringify(DEFAULT_MANDATE.allowedChains),
+        allowedTokens: JSON.stringify(DEFAULT_MANDATE.allowedTokens),
+        allowedContracts: JSON.stringify(DEFAULT_MANDATE.allowedContracts),
+        blockedContracts: JSON.stringify(DEFAULT_MANDATE.blockedContracts),
+        blockedRecipients: JSON.stringify(DEFAULT_MANDATE.blockedRecipients),
+        maxTxValueUsd: DEFAULT_MANDATE.maxTxValueUsd,
+        dailyTokenSpendUsd: DEFAULT_MANDATE.dailyTokenSpendUsd,
+        requireApprovalForSwaps: DEFAULT_MANDATE.requireApprovalForSwaps,
+        requireApprovalForTransfers: DEFAULT_MANDATE.requireApprovalForTransfers,
       },
     }),
   ]);

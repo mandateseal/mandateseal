@@ -16,6 +16,19 @@ const baseSnapshot: MandateSnapshot = {
   approvalRequiredActions: ["send_email"],
   allowedDomains: ["api.openai.com"],
   blockedDomains: ["evil.com"],
+  // v0.2 — wallet mandate. Empty defaults keep the legacy rules dominant
+  // so the original 10-rule tests stay deterministic.
+  agentWallet: null,
+  ownerWallet: null,
+  allowedChains: [],
+  allowedTokens: [],
+  allowedContracts: [],
+  blockedContracts: [],
+  blockedRecipients: [],
+  maxTxValueUsd: 0,
+  dailyTokenSpendUsd: 0,
+  requireApprovalForSwaps: false,
+  requireApprovalForTransfers: false,
 };
 
 const baseAction: ActionRequest = {

@@ -445,7 +445,15 @@ Calldata format (72 bytes):
 | bytes32 root          # 32 bytes
 ```
 
-Configured by setting `MANDATESEAL_ANCHOR_CHAIN` (`base-sepolia` or `base`), `MANDATESEAL_ANCHOR_RPC_URL`, and `MANDATESEAL_ANCHOR_PRIVATE_KEY` (signer wallet must be funded with gas). When all three set, sealing a batch broadcasts automatically; failure to broadcast does not roll back the seal.
+Onchain broadcast is **opt-in**. It activates when all three env vars are present:
+
+| var | example |
+|---|---|
+| `MANDATESEAL_ANCHOR_CHAIN`       | `base-sepolia` (testnet) or `base` (mainnet) |
+| `MANDATESEAL_ANCHOR_RPC_URL`     | `https://sepolia.base.org` |
+| `MANDATESEAL_ANCHOR_PRIVATE_KEY` | `0x…` — signer wallet, **must be funded with gas** |
+
+When all three set, sealing a batch broadcasts automatically. Broadcast failure does NOT roll back the seal — the batch stays in the DB with `txHash=null` and can be retried via `POST /api/anchor/:id/broadcast`. When env is missing or the wallet is out of gas, the dashboard at `/anchor` falls back to local-only sealing and surfaces this via `GET /api/anchor` → `onchain.configured: false`.
 
 | Method | Path | Auth | Body | Returns |
 |---|---|---|---|---|
@@ -1004,29 +1012,30 @@ Webhook delivery retries (v0.8) and SDK approval long-polls run **in-process** w
 
 | Need | Pick |
 |---|---|
-| Live beta — free | **Render free** + Supabase free Postgres. `render.yaml` ships in the repo |
-| Live beta — no cold starts | Render Starter ($7/mo) + Supabase free |
+| Live beta — free | **Vercel hobby** + Supabase free Postgres. Repo ships [`vercel.json`](vercel.json) |
+| Live beta — no cold starts | Vercel Pro or a small VPS + managed Postgres |
 | Production hardening | bare VPS + nginx + systemd + managed Postgres (DigitalOcean, RDS) |
-| Serverless | ⚠ skip Vercel/Cloudflare Workers until v1.0 retry sweeper lands |
 
-### Deploy to Render (10 minutes)
+> **Serverless caveat (Vercel/Cloudflare/etc):** the webhook in-process retry loop and the approval long-poll window are bounded by per-function `maxDuration`. We set 30s on `/api/approvals/[id]/wait` and `/api/proxy/[tool]`; for higher SLAs run on a long-lived Node host.
 
-This repo ships a `render.yaml` blueprint. Steps:
+### Deploy to Vercel (10 minutes)
 
-1. **Push repo to GitHub** (if not already): `git push origin main`
-2. **Sign up Render** at https://render.com — connect with GitHub
-3. **Dashboard → New → Blueprint** → pick your mandateseal repo → Render reads `render.yaml`, proposes one web service
-4. **Set environment variables** in the dashboard (Render won't prompt for `sync: false` vars on first deploy — you set them after):
-   - `DATABASE_URL` — Supabase pooler URL (port 6543)
-   - `DIRECT_URL` — Supabase session URL (port 5432)
+This repo ships a [`vercel.json`](vercel.json) — `buildCommand` runs `prisma migrate deploy` before `next build` so Supabase migrations apply on every deploy.
+
+1. **Push repo to GitHub**: `git push origin main`
+2. **Vercel CLI**: `npm i -g vercel && vercel login`, then `vercel link` to bind the directory to a Vercel project (or import via the Vercel dashboard)
+3. **Set environment variables** at the Vercel project level (Settings → Environment Variables, scope = Production):
+   - `DATABASE_URL` — Supabase pooler URL (port 6543, `?pgbouncer=true`)
+   - `DIRECT_URL` — Supabase direct URL (port 5432) — needed by `prisma migrate deploy`
    - `MANDATESEAL_PRIVATE_KEY_B64` — generated via `npm run cli -- gen-keys`
    - `MANDATESEAL_PUBLIC_KEY_B64` — same source
-   - `MANDATESEAL_ADMIN_ADDRESSES` — comma-separated 0x-addresses (wallets) allowed to sign in
+   - `MANDATESEAL_ADMIN_ADDRESSES` — comma-separated 0x-addresses allowed to sign in
    - `MANDATESEAL_SESSION_SECRET` — 32+ chars random
-   - `MANDATESEAL_BASE_URL` — your `https://<name>.onrender.com` URL
-5. **Deploy**. Render runs the build, which includes `prisma migrate deploy` — your Supabase DB picks up any new migrations automatically
-6. **Smoke test**: visit `https://<your-name>.onrender.com` — landing should render. `curl https://<your-name>.onrender.com/api/key.pub` should return your Ed25519 PEM
-7. **First-time seed** (if Supabase is empty): SSH into Render shell OR run locally with prod env: `DATABASE_URL=<prod> DIRECT_URL=<prod> npx tsx prisma/seed.ts` — grabs the demo API key once
+   - `MANDATESEAL_BASE_URL` — your `https://<project>.vercel.app` URL
+   - **(optional, for v0.5 onchain anchor)** `MANDATESEAL_ANCHOR_CHAIN` (`base-sepolia` or `base`), `MANDATESEAL_ANCHOR_RPC_URL`, `MANDATESEAL_ANCHOR_PRIVATE_KEY` — anchor wallet must be gas-funded
+4. **Deploy**: `vercel deploy --prod`. Build runs `prisma migrate deploy` → Supabase picks up new migrations automatically.
+5. **Smoke test**: `curl https://<project>.vercel.app/api/key.pub` should return your Ed25519 PEM. Sign in to `/login` with the wallet you listed in `MANDATESEAL_ADMIN_ADDRESSES`.
+6. **First-time seed** (if Supabase is empty): run locally with prod env: `DATABASE_URL=<prod> DIRECT_URL=<prod> npx tsx prisma/seed.ts` — prints the demo API key once.
 
 After this, every `git push origin main` triggers an auto-deploy + migration apply.
 

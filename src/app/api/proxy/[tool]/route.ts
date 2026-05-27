@@ -27,9 +27,13 @@ const FORWARD_DROP_HEADERS = new Set([
 //      embedded in the response headers but the *upstream body* is the body.
 //   4. If NOT APPROVED, returns the decision and approval handle.
 //
-// The pre-receipt is the only receipt we mint per proxy call in v0.7; the
-// outcome wrap into a sealed post-receipt is deferred to v0.7.1 (would need
-// a second canonical hash + signing pass on completion).
+// LIFECYCLE NOTE — preflight-only.
+//   The pre-receipt sealed here proves the *policy decision* before the
+//   upstream call; it does NOT prove what the upstream actually returned.
+//   The execution-outcome receipt (a second sealed receipt covering upstream
+//   status, durationMs, response-body hash) is part of the v0.8 Tool / MCP
+//   Gateway milestone. Until then the proxy's "Prove after" half lives only
+//   in the response headers — re-runnable but not cryptographically sealed.
 export async function POST(req: Request, { params }: { params: { tool: string } }) {
   const agent = await authenticateAgent(req);
   if (!agent) {

@@ -249,9 +249,17 @@ export class MandateSeal {
     return this.request<CheckResult>("/api/check", action, true);
   }
 
-  /** Generate a signed receipt for an action (no auth required in MVP). */
+  /**
+   * Generate a signed receipt for an action.
+   *
+   * In v0.2 the dashboard's `/api/receipts` POST is admin-only (cookie auth).
+   * SDK callers should use `check()` instead — same evaluator, same signed
+   * receipt, gated by the agent's bearer API key. This helper now routes
+   * through `/api/check` and returns the `{ receipt }` shape callers expect.
+   */
   async createReceipt(action: ActionRequest): Promise<{ receipt: Receipt }> {
-    return this.request<{ receipt: Receipt }>("/api/receipts", action, false);
+    const result = await this.check(action);
+    return { receipt: result.receipt };
   }
 
   /** Verify a stored or third-party receipt via the server. */
@@ -266,7 +274,7 @@ export class MandateSeal {
     return this.verifyReceipt(receipt);
   }
 
-  /** Short alias for `createReceipt` — generates a signed receipt without bearer auth. */
+  /** Short alias for `createReceipt` — runs preflight + returns the sealed receipt. */
   seal(action: ActionRequest) {
     return this.createReceipt(action);
   }
