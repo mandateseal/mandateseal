@@ -9,6 +9,7 @@ import { LogoutButton } from "./LogoutButton";
 // Logs: receipts, approvals, audit, and spend.
 // Infra tools stay in a smaller right-side affordance.
 const links = [
+  { href: "/playground", label: "Playground" },
   { href: "/dashboard", label: "Console" },
   { href: "/agents", label: "Agents" },
   { href: "/receipts", label: "Logs" },
