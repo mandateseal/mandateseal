@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { actionRequestSchema } from "@/lib/schemas";
 import { authenticateAgent } from "@/lib/auth";
 import { evaluateAndSeal } from "@/lib/receipt";
+import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,7 +10,20 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const agent = await authenticateAgent(req);
   if (!agent) {
+    // Limit pre-auth attempts by IP so brute-forcing keys is expensive.
+    const ipLimit = checkRateLimit(`check:ip:${clientIp(req)}`, { limit: 30, windowMs: 60_000 });
+    if (!ipLimit.allowed) {
+      const r = rateLimitResponse(ipLimit);
+      return NextResponse.json(r.body, r.init);
+    }
     return NextResponse.json({ error: "Invalid or missing API key" }, { status: 401 });
+  }
+
+  // Post-auth: limit per-agent so one key abuse can't drain the DB.
+  const agentLimit = checkRateLimit(`check:agent:${agent.id}`, { limit: 120, windowMs: 60_000 });
+  if (!agentLimit.allowed) {
+    const r = rateLimitResponse(agentLimit);
+    return NextResponse.json(r.body, r.init);
   }
 
   let body: unknown;

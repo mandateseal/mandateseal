@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { publicBatch, sealNextBatch } from "@/lib/anchor";
 import { broadcastAnchor, isAnchorConfigured } from "@/lib/onchain";
+import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +23,14 @@ export async function GET() {
 // records txHash/blockNumber. Broadcast failure does NOT roll back the seal —
 // the batch stays in the DB with txHash=null and can be retried via
 // POST /api/anchor/:id/broadcast.
-export async function POST() {
+//
+// Heavy endpoint — sealing is a tx-write + onchain broadcast. Cap aggressively.
+export async function POST(req: Request) {
+  const lim = checkRateLimit(`anchor:ip:${clientIp(req)}`, { limit: 5, windowMs: 60_000 });
+  if (!lim.allowed) {
+    const r = rateLimitResponse(lim);
+    return NextResponse.json(r.body, r.init);
+  }
   const result = await sealNextBatch();
   if (!result) {
     return NextResponse.json({ error: "No receipts to anchor" }, { status: 400 });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { authenticateAgent } from "@/lib/auth";
 import { evaluateAndSeal } from "@/lib/receipt";
+import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +33,17 @@ const FORWARD_DROP_HEADERS = new Set([
 export async function POST(req: Request, { params }: { params: { tool: string } }) {
   const agent = await authenticateAgent(req);
   if (!agent) {
+    const ipLimit = checkRateLimit(`proxy:ip:${clientIp(req)}`, { limit: 30, windowMs: 60_000 });
+    if (!ipLimit.allowed) {
+      const r = rateLimitResponse(ipLimit);
+      return NextResponse.json(r.body, r.init);
+    }
     return NextResponse.json({ error: "Invalid or missing API key" }, { status: 401 });
+  }
+  const agentLimit = checkRateLimit(`proxy:agent:${agent.id}`, { limit: 60, windowMs: 60_000 });
+  if (!agentLimit.allowed) {
+    const r = rateLimitResponse(agentLimit);
+    return NextResponse.json(r.body, r.init);
   }
 
   const tool = await prisma.tool.findFirst({

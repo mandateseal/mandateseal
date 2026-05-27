@@ -477,6 +477,22 @@ Every `NEEDS_APPROVAL` decision automatically opens an `Approval` workflow recor
 
 `POST /api/check` and `POST /api/receipts` return `receipt.approval` when the decision is `NEEDS_APPROVAL`. SDK callers can pass that `approval.id` to `waitForApproval()` and block until a human resolves it.
 
+### Rate limits
+
+All public-facing endpoints are rate-limited via an in-memory sliding window (per Vercel function instance). Determined attackers can multiply by N where N = warm instance count; for industrial-grade limits swap `src/lib/ratelimit.ts`'s bucket store for Upstash Redis (same API surface). On a hit you get `429` with `Retry-After` + `X-RateLimit-Limit` headers.
+
+| Route | Key | Limit |
+|---|---|---|
+| `POST /api/check`               | per agent (post-auth) | 120 / min |
+| `POST /api/check`               | per IP (pre-auth fail) | 30 / min |
+| `POST /api/proxy/:tool`         | per agent (post-auth) | 60 / min |
+| `POST /api/proxy/:tool`         | per IP (pre-auth fail) | 30 / min |
+| `POST /api/anchor`              | per IP | 5 / min |
+| `GET  /api/auth/nonce`          | per IP | 20 / min |
+| `POST /api/auth/siwe`           | per IP | 10 / min |
+| `POST /api/verify`              | per IP | 60 / min |
+| `POST /api/anchor/verify`       | per IP | 60 / min |
+
 ### Auth (dashboard)
 
 When `MANDATESEAL_ADMIN_ADDRESSES` is set, the dashboard pages and admin API routes require a SIWE-signed session cookie. The user connects a wallet, signs a nonce-bound message (no gas, no tx), and the server issues an HMAC-MAC'd session cookie if the recovered address is in the allowlist.

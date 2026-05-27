@@ -7,6 +7,7 @@ import {
   NONCE_COOKIE,
   SESSION_COOKIE,
 } from "@/lib/admin-auth";
+import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,12 @@ export const dynamic = "force-dynamic";
 // /api/auth/nonce, and — if the recovered address is in the admin allowlist —
 // issues a session cookie.
 export async function POST(req: Request) {
+  // Cap signature attempts per IP — primary brute-force surface.
+  const lim = checkRateLimit(`auth:siwe:${clientIp(req)}`, { limit: 10, windowMs: 60_000 });
+  if (!lim.allowed) {
+    const r = rateLimitResponse(lim);
+    return NextResponse.json(r.body, r.init);
+  }
   if (!isAuthEnabled()) {
     return NextResponse.json({ ok: true, mode: "open" });
   }

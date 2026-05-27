@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyAnchorProof } from "@/lib/anchor";
+import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,11 @@ const bodySchema = z.object({
 // Standalone proof verification — no DB lookup. Caller supplies the leaf,
 // the sibling-path proof, and the claimed merkle root.
 export async function POST(req: Request) {
+  const lim = checkRateLimit(`anchor-verify:ip:${clientIp(req)}`, { limit: 60, windowMs: 60_000 });
+  if (!lim.allowed) {
+    const r = rateLimitResponse(lim);
+    return NextResponse.json(r.body, r.init);
+  }
   let body: unknown;
   try {
     body = await req.json();

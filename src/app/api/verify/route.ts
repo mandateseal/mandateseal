@@ -3,11 +3,18 @@ import { prisma } from "@/lib/db";
 import { verifyRequestSchema } from "@/lib/schemas";
 import { recomputeAndVerify, reEvaluateFromSnapshot } from "@/lib/receipt";
 import { publicReceipt } from "@/lib/serialize";
+import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
+  const lim = checkRateLimit(`verify:ip:${clientIp(req)}`, { limit: 60, windowMs: 60_000 });
+  if (!lim.allowed) {
+    const r = rateLimitResponse(lim);
+    return NextResponse.json(r.body, r.init);
+  }
+
   let body: unknown;
   try {
     body = await req.json();
