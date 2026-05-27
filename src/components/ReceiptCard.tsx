@@ -14,10 +14,11 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
     setBusy(true);
     setVerifyState(null);
     try {
+      const payload = receipt.rawPayload ? receipt : { id: receipt.id };
       const res = await fetch("/api/verify", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(receipt),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       setVerifyState({ valid: !!data.valid, reasons: data.reasons ?? [] });
@@ -28,11 +29,13 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
     }
   }
 
-  async function copy(kind: "json" | "share") {
+  async function copy(kind: "json" | "share" | "link") {
     const text =
       kind === "json"
         ? JSON.stringify(receipt, null, 2)
-        : shareText(receipt);
+        : kind === "share"
+        ? shareText(receipt)
+        : `${window.location.origin}/r/${receipt.id}`;
     await navigator.clipboard.writeText(text);
     setCopied(kind);
     setTimeout(() => setCopied(null), 1500);
@@ -65,7 +68,7 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
       <div className="space-y-3">
         <HashText label="policyHash" value={receipt.policyHash} />
         <HashText label="receiptHash" value={receipt.receiptHash} />
-        <HashText label="signature (HMAC-SHA256)" value={receipt.signature} />
+        <HashText label="signature (Ed25519, base64)" value={receipt.signature} />
       </div>
 
       <div className="dashed-rule my-5" />
@@ -73,6 +76,17 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
         <button className="command-button accent" onClick={verify} disabled={busy}>
           {busy ? "Verifying…" : "Verify"}
         </button>
+        <button className="command-button" onClick={() => copy("link")}>
+          {copied === "link" ? "Copied" : "Copy public link"}
+        </button>
+        <a
+          href={`/r/${receipt.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="command-button"
+        >
+          Open public page
+        </a>
         <button className="command-button" onClick={() => copy("json")}>
           {copied === "json" ? "Copied" : "Copy JSON"}
         </button>

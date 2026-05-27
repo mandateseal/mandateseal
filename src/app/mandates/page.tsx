@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { publicMandate } from "@/lib/serialize";
+import { SectionSubNav, AGENTS_TABS } from "@/components/SectionSubNav";
 
 export const dynamic = "force-dynamic";
 
@@ -14,19 +15,27 @@ export default async function MandatesPage() {
     <div className="page-container py-10">
       <div className="label">POLICY</div>
       <h1 className="display-title text-paper text-3xl md:text-4xl mt-2">MANDATES</h1>
-      <p className="mt-2 text-paperMuted text-sm">
+      <SectionSubNav group="Agents" tabs={AGENTS_TABS} active="/mandates" />
+      <p className="mt-4 text-paperMuted text-sm">
         A mandate is the contract that constrains what an agent may do. Edit on the dashboard.
       </p>
       <div className="mt-6">
         <Link href="/dashboard" className="command-button accent">Edit on Dashboard</Link>
       </div>
 
-      <div className="mt-6 grid lg:grid-cols-2 gap-4">
-        {mandates.length === 0 && (
-          <div className="paper-panel p-6 col-span-full text-center font-tech text-[11px] uppercase tracking-[0.18em] text-paperMuted">
-            no mandates yet.
+      {mandates.length === 0 ? (
+        <div className="mt-8 paper-panel p-8 text-center">
+          <div className="font-display text-paper text-xl tracking-[0.04em]">NO MANDATES YET</div>
+          <p className="mt-3 text-paperMuted text-sm max-w-md mx-auto">
+            Every agent must have at least one mandate before <code className="text-paper">/api/check</code>{" "}
+            can decide anything. New agents created via the dashboard get a sensible default automatically.
+          </p>
+          <div className="mt-5">
+            <Link href="/dashboard" className="command-button accent">Create on Dashboard</Link>
           </div>
-        )}
+        </div>
+      ) : (
+      <div className="mt-6 grid lg:grid-cols-2 gap-4">
         {mandates.map((m) => {
           const pm = publicMandate(m);
           return (
@@ -55,6 +64,7 @@ export default async function MandatesPage() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

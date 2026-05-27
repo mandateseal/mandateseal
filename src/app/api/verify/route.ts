@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyRequestSchema } from "@/lib/schemas";
-import { recomputeAndVerify } from "@/lib/receipt";
+import { recomputeAndVerify, reEvaluateFromSnapshot } from "@/lib/receipt";
 import { publicReceipt } from "@/lib/serialize";
 
 export const runtime = "nodejs";
@@ -24,13 +24,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ valid: false, reasons: ["Receipt not found"] }, { status: 404 });
     }
     const r = publicReceipt(stored);
-    const verdict = recomputeAndVerify({
-      ...r,
-      rawPayload: (r.rawPayload as Record<string, unknown>) ?? {},
-    });
+    const verdict = recomputeAndVerify({ ...r, rawPayload: r.rawPayload ?? {} });
+    const reEval = reEvaluateFromSnapshot({ ...r, rawPayload: r.rawPayload ?? {} });
     return NextResponse.json({
       valid: verdict.valid,
       reasons: verdict.reasons,
+      reEvaluation: { matched: reEval.matched, expected: reEval.expected },
       receipt: r,
     });
   }
@@ -40,9 +39,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid receipt payload", issues: parsed.error.issues }, { status: 400 });
   }
 
-  const verdict = recomputeAndVerify({
-    ...parsed.data,
-    rawPayload: parsed.data.rawPayload ?? {},
+  const verdict = recomputeAndVerify({ ...parsed.data, rawPayload: parsed.data.rawPayload ?? {} });
+  const reEval = reEvaluateFromSnapshot({ ...parsed.data, rawPayload: parsed.data.rawPayload ?? {} });
+  return NextResponse.json({
+    valid: verdict.valid,
+    reasons: verdict.reasons,
+    reEvaluation: { matched: reEval.matched, expected: reEval.expected },
   });
-  return NextResponse.json({ valid: verdict.valid, reasons: verdict.reasons });
 }

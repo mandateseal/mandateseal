@@ -4,7 +4,7 @@ import { NavBar } from "@/components/NavBar";
 import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
-  title: "MandateSeal — Approve before. Prove after.",
+  title: "MandateSeal - Approve before. Prove after.",
   description:
     "MandateSeal is a trust layer for autonomous AI agents. Pre-action mandate enforcement and post-action signed receipts.",
   icons: {

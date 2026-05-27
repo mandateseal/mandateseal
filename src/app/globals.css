@@ -9,9 +9,10 @@
   --paper-muted: #c7bfae;
   --line: rgba(242, 234, 216, 0.22);
   --line-strong: rgba(242, 234, 216, 0.48);
-  --green: #a7ff3f;
-  --red: #ff4d4d;
-  --amber: #ffcc4d;
+  --green: #4ade80;
+  --red: #f87171;
+  --amber: #f5c451;
+  --panel: rgba(10, 10, 10, 0.92);
 }
 
 * { box-sizing: border-box; }
@@ -22,9 +23,46 @@ body {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background-color: var(--ink);
   background-image:
-    linear-gradient(rgba(242, 234, 216, 0.055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(242, 234, 216, 0.045) 1px, transparent 1px);
-  background-size: 54px 54px;
+    linear-gradient(
+      90deg,
+      transparent 0 8%,
+      rgba(242, 234, 216, 0.06) 8.15% 8.35%,
+      transparent 8.5% 28%,
+      rgba(242, 234, 216, 0.045) 28.15% 28.35%,
+      transparent 28.5% 41%,
+      rgba(242, 234, 216, 0.055) 41.15% 41.35%,
+      transparent 41.5% 68%,
+      rgba(242, 234, 216, 0.05) 68.15% 68.35%,
+      transparent 68.5% 84%,
+      rgba(242, 234, 216, 0.035) 84.15% 84.35%,
+      transparent 84.5% 100%
+    ),
+    linear-gradient(
+      180deg,
+      transparent 0 10%,
+      rgba(242, 234, 216, 0.06) 10.15% 10.35%,
+      transparent 10.5% 26%,
+      rgba(242, 234, 216, 0.04) 26.15% 26.35%,
+      transparent 26.5% 48%,
+      rgba(242, 234, 216, 0.055) 48.15% 48.35%,
+      transparent 48.5% 71%,
+      rgba(242, 234, 216, 0.045) 71.15% 71.35%,
+      transparent 71.5% 90%,
+      rgba(242, 234, 216, 0.06) 90.15% 90.35%,
+      transparent 90.5% 100%
+    ),
+    linear-gradient(rgba(242, 234, 216, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(242, 234, 216, 0.016) 1px, transparent 1px);
+  background-size:
+    720px 100%,
+    100% 680px,
+    100% 43px,
+    43px 100%;
+  background-position:
+    -36px 0,
+    0 -52px,
+    0 0,
+    0 0;
   color: var(--paper);
   text-rendering: optimizeLegibility;
 }
@@ -47,15 +85,16 @@ body {
   }
 
   .display-title {
-    @apply font-display uppercase leading-[0.86] tracking-[0.04em];
+    @apply font-display uppercase leading-[0.92] tracking-[0.04em];
     text-wrap: balance;
   }
 
   .ink-panel {
     position: relative;
     border: 1px solid var(--line);
-    background: rgba(8, 8, 8, 0.86);
+    background: var(--panel);
     box-shadow: 0 18px 48px -36px rgba(0, 0, 0, 0.95);
+    overflow: hidden;
   }
 
   .paper-panel {
@@ -64,6 +103,316 @@ body {
     background:
       linear-gradient(rgba(242, 234, 216, 0.045), rgba(242, 234, 216, 0.012)),
       rgba(8, 8, 8, 0.94);
+    overflow: hidden;
+  }
+
+  .ink-panel::before,
+  .paper-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-top: 1px solid rgba(242, 234, 216, 0.12);
+  }
+
+  .hero-section {
+    padding-top: clamp(4.25rem, 8vw, 7rem);
+    padding-bottom: clamp(2.75rem, 6vw, 5rem);
+  }
+
+  .hero-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.85fr);
+    gap: clamp(2rem, 5vw, 5rem);
+    align-items: center;
+  }
+
+  .hero-copy {
+    min-width: 0;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(242, 234, 216, 0.2);
+    background: rgba(242, 234, 216, 0.04);
+    color: var(--paper-muted);
+    padding: 0.45rem 0.7rem;
+    font-family: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+
+  .hero-title {
+    display: grid;
+    margin-top: 1.35rem;
+    color: var(--paper);
+    font-family: "Archivo Black", Impact, ui-sans-serif, system-ui, sans-serif;
+    font-size: clamp(2.2rem, 5vw, 4.5rem);
+    line-height: 0.94;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    text-wrap: balance;
+  }
+
+  .hero-title span {
+    display: block;
+  }
+
+  .hero-subcopy {
+    margin-top: 1.35rem;
+    max-width: 44rem;
+    color: var(--paper-muted);
+    font-size: clamp(0.98rem, 1.2vw, 1.08rem);
+    line-height: 1.72;
+  }
+
+  .hero-actions {
+    margin-top: 2rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .hero-stats {
+    margin-top: 2.5rem;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    max-width: 42rem;
+    border-top: 1px solid rgba(242, 234, 216, 0.18);
+    border-bottom: 1px solid rgba(242, 234, 216, 0.18);
+  }
+
+  .hero-stats > div {
+    padding: 1rem 1rem 1rem 0;
+  }
+
+  .hero-stats > div + div {
+    border-left: 1px solid rgba(242, 234, 216, 0.14);
+    padding-left: 1rem;
+  }
+
+  .hero-stat-value {
+    color: var(--paper);
+    font-family: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+
+  .hero-stat-label {
+    margin-top: 0.25rem;
+    color: var(--paper-muted);
+    font-family: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .hero-receipt {
+    border-color: rgba(242, 234, 216, 0.34);
+    border-radius: 8px;
+    background:
+      radial-gradient(circle at 92% 12%, rgba(74, 222, 128, 0.08), transparent 8rem),
+      linear-gradient(135deg, rgba(242, 234, 216, 0.055), rgba(242, 234, 216, 0.012) 42%, rgba(0, 0, 0, 0.32)),
+      rgba(8, 8, 8, 0.94);
+    padding: clamp(1.25rem, 2vw, 1.75rem);
+    box-shadow:
+      inset 3px 0 0 rgba(74, 222, 128, 0.55),
+      inset 0 1px 0 rgba(242, 234, 216, 0.12),
+      0 34px 90px -58px rgba(242, 234, 216, 0.24),
+      0 26px 70px -46px rgba(0, 0, 0, 0.95);
+  }
+
+  .hero-receipt::after {
+    content: "SEAL";
+    position: absolute;
+    right: 1.1rem;
+    bottom: 5.1rem;
+    color: rgba(242, 234, 216, 0.035);
+    font-family: "Archivo Black", Impact, ui-sans-serif, system-ui, sans-serif;
+    font-size: clamp(3.5rem, 7vw, 6.2rem);
+    line-height: 1;
+    letter-spacing: 0;
+    pointer-events: none;
+  }
+
+  .receipt-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .receipt-id-tag {
+    display: block;
+    margin-top: 0.45rem;
+    color: rgba(242, 234, 216, 0.42);
+    font-family: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .decision-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid currentColor;
+    border-radius: 4px;
+    padding: 0.35rem 0.65rem;
+    font-family: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .decision-pill.approved {
+    color: var(--green);
+    background: rgba(74, 222, 128, 0.08);
+  }
+
+  .terminal-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem 1rem;
+    border: 1px solid rgba(242, 234, 216, 0.14);
+    border-radius: 6px;
+    background:
+      linear-gradient(90deg, rgba(74, 222, 128, 0.055), transparent 42%),
+      rgba(0, 0, 0, 0.32);
+    padding: 0.7rem 0.8rem;
+    color: var(--paper-muted);
+    font-family: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .method-pill {
+    display: inline-flex;
+    margin-right: 0.45rem;
+    color: var(--paper);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+  }
+
+  .receipt-status-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.4rem 0.75rem;
+    border-top: 1px solid rgba(242, 234, 216, 0.18);
+    padding-top: 0.9rem;
+    color: var(--paper-muted);
+    font-family: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.63rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .feature-panel {
+    min-height: 12rem;
+    transition: border-color 140ms ease-out, background-color 140ms ease-out, transform 140ms ease-out;
+  }
+
+  .feature-panel:hover {
+    border-color: rgba(242, 234, 216, 0.34);
+    background: rgba(13, 13, 13, 0.96);
+  }
+
+  .flow-panel {
+    border-color: rgba(242, 234, 216, 0.24);
+  }
+
+  .gateway-strip {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border: 1px solid rgba(242, 234, 216, 0.18);
+    background:
+      linear-gradient(90deg, rgba(242, 234, 216, 0.04), transparent 28%),
+      rgba(8, 8, 8, 0.84);
+  }
+
+  .gateway-step {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.9rem;
+    padding: 1rem;
+    min-width: 0;
+  }
+
+  .gateway-step + .gateway-step {
+    border-left: 1px solid rgba(242, 234, 216, 0.14);
+  }
+
+  .gateway-no {
+    display: inline-flex;
+    width: 2rem;
+    height: 2rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(242, 234, 216, 0.24);
+    color: var(--paper-muted);
+    font-family: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  .gateway-title {
+    color: var(--paper);
+    font-family: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .gateway-body {
+    margin-top: 0.3rem;
+    color: var(--paper-muted);
+    font-family: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.72rem;
+    line-height: 1.5;
+  }
+
+  .cta-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    border: 1px solid rgba(242, 234, 216, 0.2);
+    background: rgba(10, 10, 10, 0.9);
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+  }
+
+  .cta-title {
+    margin-top: 0.55rem;
+    color: var(--paper);
+    font-family: "Archivo Black", Impact, ui-sans-serif, system-ui, sans-serif;
+    font-size: clamp(1.75rem, 3.2vw, 3rem);
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .cta-copy {
+    margin-top: 0.8rem;
+    max-width: 42rem;
+    color: var(--paper-muted);
+    line-height: 1.7;
+  }
+
+  .cta-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: flex-end;
   }
 
   .receipt-paper {
@@ -110,13 +459,14 @@ body {
   .command-button {
     @apply inline-flex min-h-10 items-center justify-center border px-4 py-2 font-tech text-[11px] font-semibold uppercase tracking-[0.18em] transition;
     border-color: var(--line-strong);
-    background: transparent;
+    background: rgba(242, 234, 216, 0.02);
     color: var(--paper);
     cursor: pointer;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.22);
   }
   .command-button:hover { background: var(--paper); color: var(--ink); }
   .command-button:disabled { opacity: 0.45; cursor: not-allowed; }
-  .command-button.accent { border-color: rgba(167, 255, 63, 0.7); color: var(--green); }
+  .command-button.accent { border-color: rgba(74, 222, 128, 0.7); color: var(--green); }
   .command-button.accent:hover { background: var(--green); color: var(--ink); }
 
   .field-label {
@@ -133,5 +483,136 @@ body {
 
   .dashed-rule {
     border-top: 1px dashed rgba(242, 234, 216, 0.3);
+  }
+
+  /* Segmented filter pills (decision / risk on /receipts). Better visual
+     affordance than a native <select> for low-cardinality choice sets. */
+  .seg {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.7rem;
+    font-family: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8F8778;
+    background-color: transparent;
+    border: 1px solid #2A2A2A;
+    cursor: pointer;
+    transition: background-color 120ms ease-out, color 120ms ease-out, border-color 120ms ease-out;
+  }
+  .seg:hover {
+    color: #F8F2E3;
+    border-color: #3A2F16;
+  }
+  .seg-active { color: #EDE7D8; }
+  .seg-active.seg-neutral        { background-color: #111111; border-color: #2A2A2A; color: #EDE7D8; }
+  .seg-active.seg-approved       { background-color: #102A1F; border-color: #22C55E; color: #4ADE80; }
+  .seg-active.seg-blocked        { background-color: #2A1111; border-color: #EF4444; color: #F87171; }
+  .seg-active.seg-needs_approval { background-color: #2A2111; border-color: #F59E0B; color: #FBBF24; }
+  .seg-active.seg-low            { background-color: #102A1F; border-color: #22C55E; color: #4ADE80; }
+  .seg-active.seg-medium         { background-color: #2A2111; border-color: #F59E0B; color: #FBBF24; }
+  .seg-active.seg-high           { background-color: #2A1111; border-color: #EF4444; color: #F87171; }
+
+  /* Section sub-nav tabs (Logs · Receipts | Approvals | …).
+     Active tab gets a pill background + warm dark border + amber underline so it
+     reads as "you are here" without competing with the top nav. The 2-px bottom
+     border slot is reserved on inactive tabs too — keeps layout stable on hover. */
+  .subnav-tab {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.75rem;
+    font-family: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #8F8778;
+    border: 1px solid transparent;
+    border-bottom: 2px solid transparent;
+    transition: background-color 120ms ease-out, color 120ms ease-out, border-color 120ms ease-out;
+  }
+  .subnav-tab:hover {
+    background-color: #11100D;
+    color: #F8F2E3;
+  }
+  .subnav-tab-active,
+  .subnav-tab-active:hover {
+    background-color: #15120D;
+    border-color: #3A2F16;
+    border-bottom-color: #F5C451;
+    color: #F8F2E3;
+  }
+
+  /* Native <select> dropdown — warmer, distinct surface from the main page.
+     Hover on <option> works in Chromium; Firefox/Safari fall back to OS default. */
+  select.field-input {
+    background-color: #0D0D0B;
+    border-color: #2B2924;
+    color: #EDE7D8;
+  }
+  select.field-input option {
+    background-color: #0D0D0B;
+    color: #EDE7D8;
+  }
+  select.field-input option:hover,
+  select.field-input option:focus {
+    background-color: #1A1712;
+    color: #FFF7E6;
+  }
+  select.field-input option:checked,
+  select.field-input option:checked:hover {
+    background-color: #2A2418;
+    color: #F6C76E;
+    /* WebKit needs this inset trick — option:checked bg is otherwise overridden by UA */
+    box-shadow: 0 0 0 1000px #2A2418 inset;
+  }
+
+  @media (max-width: 1024px) {
+    .hero-shell {
+      grid-template-columns: 1fr;
+    }
+
+    .hero-receipt {
+      max-width: 42rem;
+    }
+
+    .gateway-strip {
+      grid-template-columns: 1fr;
+    }
+
+    .gateway-step + .gateway-step {
+      border-left: 0;
+      border-top: 1px solid rgba(242, 234, 216, 0.14);
+    }
+
+    .cta-panel {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .cta-actions {
+      justify-content: flex-start;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .hero-section {
+      padding-top: 3rem;
+    }
+
+    .hero-title {
+      font-size: clamp(2.55rem, 16vw, 4.1rem);
+    }
+
+    .hero-stats {
+      grid-template-columns: 1fr;
+    }
+
+    .hero-stats > div + div {
+      border-left: 0;
+      border-top: 1px solid rgba(242, 234, 216, 0.14);
+      padding-left: 0;
+    }
+
   }
 }
