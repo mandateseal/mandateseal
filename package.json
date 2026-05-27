@@ -17,6 +17,7 @@
     "start": "node --env-file=.env ./node_modules/next/dist/bin/next start",
     "start:no-env": "next start",
     "cli": "node bin/mandateseal.mjs",
+    "example:research-agent": "tsx examples/research-agent/index.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

@@ -520,6 +520,14 @@ const seal = new MandateSeal({
 });
 ```
 
+Full working example: [`examples/research-agent/`](examples/research-agent/) — a scripted agent that wraps every tool call with `seal.guard()`, demonstrating all three outcomes (APPROVED / BLOCKED / NEEDS_APPROVAL). Run it:
+
+```bash
+MANDATESEAL_URL=https://mandateseal.vercel.app \
+MANDATESEAL_API_KEY=msk_demo_... \
+npm run example:research-agent
+```
+
 ### The one-line pattern: `seal.guard()`
 
 Wrap any agent action with `seal.guard(action, runFn)`. It does the full flow:
