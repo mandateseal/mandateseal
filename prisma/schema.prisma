@@ -1,11 +1,11 @@
-// MandateSeal — SQLite schema for local MVP.
+// MandateSeal — Postgres schema (production).
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -20,6 +20,7 @@ model Agent {
 
   mandates    Mandate[]
   receipts    Receipt[]
+  approvals   Approval[]
 }
 
 model Mandate {
@@ -46,28 +47,117 @@ model Mandate {
 }
 
 model Receipt {
-  id           String   @id
-  agentId      String
-  mandateId    String
-  actionType   String
-  tool         String
-  target       String
-  costUsd      Float    @default(0)
-  decision     String
-  reason       String
-  matchedRule  String
-  riskLevel    String
-  timestamp    DateTime @default(now())
-  policyHash   String
-  receiptHash  String
-  signature    String
-  rawPayload   String
-  createdAt    DateTime @default(now())
+  id              String   @id
+  agentId         String
+  mandateId       String
+  actionType      String
+  tool            String
+  target          String
+  costUsd         Float    @default(0)
+  decision        String
+  reason          String
+  matchedRule     String
+  riskLevel       String
+  timestamp       DateTime @default(now())
+  policyHash      String
+  receiptHash     String
+  signature       String
+  rawPayload      String
+  createdAt       DateTime @default(now())
+  anchorBatchId   String?
 
-  agent     Agent   @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  mandate   Mandate @relation(fields: [mandateId], references: [id], onDelete: Cascade)
+  agent     Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  mandate   Mandate   @relation(fields: [mandateId], references: [id], onDelete: Cascade)
+  approval  Approval?
+  anchor    AnchorBatch? @relation(fields: [anchorBatchId], references: [id], onDelete: SetNull)
 
   @@index([agentId])
   @@index([mandateId])
   @@index([timestamp])
+  @@index([anchorBatchId])
+}
+
+model AnchorBatch {
+  id            String   @id
+  batchIndex    Int      @unique  // monotonic counter, starts at 1
+  root          String                // hex sha256 of merkle root
+  prevRoot      String                // hex, or "0".repeat(64) for genesis
+  receiptCount  Int
+  startedAt     DateTime
+  endedAt       DateTime
+  // Onchain broadcast fields — null in offline MVP, populated by v0.9.1
+  chain         String?               // e.g. "base-sepolia"
+  txHash        String?
+  blockNumber   Int?
+  createdAt     DateTime @default(now())
+
+  receipts      Receipt[]
+
+  @@index([batchIndex])
+}
+
+model Webhook {
+  id          String   @id
+  name        String
+  url         String
+  events      String   @default("[]")  // JSON array of event names
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  deliveries  WebhookDelivery[]
+}
+
+model WebhookDelivery {
+  id            String   @id
+  webhookId     String
+  eventType     String
+  status        String   @default("pending")  // pending | sent | failed
+  attempts      Int      @default(0)
+  responseCode  Int?
+  error         String?
+  payload       String                          // JSON body delivered
+  signature     String                          // Ed25519 signature header value sent
+  createdAt     DateTime @default(now())
+  lastTriedAt   DateTime?
+
+  webhook   Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Tool {
+  id              String   @id
+  name            String   @unique
+  description     String   @default("")
+  kind            String   @default("http")  // http | (future: mcp, openapi)
+  endpoint        String                        // upstream URL for kind=http
+  method          String   @default("POST")    // HTTP method to use on upstream
+  defaultCostUsd  Float    @default(0)          // assumed cost per invocation
+  enabled         Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Approval {
+  id            String    @id
+  receiptId     String    @unique
+  agentId       String
+  status        String    @default("pending")  // pending | approved | denied | expired
+  requestedAt   DateTime  @default(now())
+  decidedAt     DateTime?
+  decidedBy     String?
+  decisionNote  String?
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  receipt   Receipt  @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([agentId])
+  @@index([expiresAt])
 }

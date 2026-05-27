@@ -26,6 +26,9 @@ prisma/dev.db-journal
 prisma/*.sqlite
 prisma/*.sqlite-journal
 
+# MandateSeal Ed25519 signing key (dev only — never deploy this file)
+.mandateseal-keys.json
+
 # Logs
 *.log
 npm-debug.log*

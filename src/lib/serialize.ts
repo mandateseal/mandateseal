@@ -42,6 +42,20 @@ export function publicMandate(m: Mandate) {
   };
 }
 
+/**
+ * Strip sensitive sub-payloads from a receipt for public exposure (/r/:id,
+ * /a/:id, OG previews). The top-level decision, agent id, hashes and signature
+ * still serve as proof — verification by id still works against the server's
+ * stored full payload via /api/verify. Offline verification on a redacted
+ * payload would fail by design (the canonical hash is over the FULL receipt).
+ */
+export function redactedReceipt(view: ReceiptView): ReceiptView {
+  return {
+    ...view,
+    rawPayload: null,
+  };
+}
+
 export function publicReceipt(r: Receipt): ReceiptView {
   let rawPayload: Record<string, unknown> | null = null;
   try {
