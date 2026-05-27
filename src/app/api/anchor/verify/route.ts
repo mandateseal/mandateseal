@@ -3,6 +3,7 @@ import { z } from "zod";
 import { verifyAnchorProof } from "@/lib/anchor";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   receiptHash: z.string().regex(/^[0-9a-f]{64}$/, "expected 64-char hex"),

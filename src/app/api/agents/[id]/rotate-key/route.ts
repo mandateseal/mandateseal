@@ -4,6 +4,7 @@ import { generateApiKey, hashApiKey } from "@/lib/crypto";
 import { publicAgent } from "@/lib/serialize";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 // POST /api/agents/:id/rotate-key
 // Issues a fresh API key for the agent and invalidates the previous one.

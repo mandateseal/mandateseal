@@ -1,12 +1,16 @@
-// MandateSeal — Postgres schema (production).
+// MandateSeal — Postgres schema. Supabase (live beta / prod) via shared
+// transaction-mode pooler. `directUrl` is used by Prisma migrations only
+// (session-mode pooler, port 5432) so they can take advisory locks the
+// transaction pooler doesn't support.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Agent {

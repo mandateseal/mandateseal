@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { publicAgent } from "@/lib/serialize";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const agent = await prisma.agent.findUnique({ where: { id: params.id } });

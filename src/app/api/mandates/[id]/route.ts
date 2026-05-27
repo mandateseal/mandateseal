@@ -5,6 +5,7 @@ import { publicMandate } from "@/lib/serialize";
 import { serializeListsForDb } from "@/lib/mandate";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const m = await prisma.mandate.findUnique({ where: { id: params.id } });

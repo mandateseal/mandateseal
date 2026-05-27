@@ -3,6 +3,7 @@ import { z } from "zod";
 import { decideApproval, toApprovalView } from "@/lib/approval";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const bodySchema = z
   .object({

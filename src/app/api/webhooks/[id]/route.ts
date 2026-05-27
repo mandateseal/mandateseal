@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { publicWebhook, updateWebhookSchema } from "@/lib/webhook";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const wh = await prisma.webhook.findUnique({ where: { id: params.id } });

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { publicBatch, sealNextBatch } from "@/lib/anchor";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 // GET /api/anchor — list batches newest first
 export async function GET() {

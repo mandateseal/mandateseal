@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { publicDelivery } from "@/lib/webhook";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const url = new URL(req.url);

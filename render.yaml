@@ -1,0 +1,50 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+#
+# Deploy this MandateSeal instance on Render's free web service tier. Postgres
+# lives outside Render (Supabase) — set DATABASE_URL + DIRECT_URL via the
+# Render dashboard, not here.
+#
+# How to use:
+#   1. Push this repo to GitHub.
+#   2. Render Dashboard → New → Blueprint → connect this repo.
+#   3. Render reads this file and proposes one web service.
+#   4. Set the env vars marked `sync: false` in the dashboard (secrets).
+#   5. Deploy. The build runs `prisma generate && prisma migrate deploy && next build`,
+#      so the live DB schema is always in sync with what's in prisma/migrations/.
+#
+# Free tier note: web service sleeps after 15 min of inactivity. First request
+# after sleep takes ~30 s to wake. Webhook retries (v0.8) won't survive sleep —
+# upgrade to Starter ($7/mo) if you need them to always run.
+
+services:
+  - type: web
+    name: mandateseal
+    runtime: node
+    plan: free
+    region: oregon                  # closest free region to Singapore/Indonesia is "oregon" or "singapore" (paid)
+    branch: main
+    buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy && npm run build
+    startCommand: npm run start:no-env
+    healthCheckPath: /api/key.pub
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Postgres — Supabase pooler URLs. Set in Render dashboard, not here.
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      # Ed25519 signing keypair — generate with `npm run cli -- gen-keys`.
+      - key: MANDATESEAL_PRIVATE_KEY_B64
+        sync: false
+      - key: MANDATESEAL_PUBLIC_KEY_B64
+        sync: false
+      # Dashboard cookie auth.
+      - key: MANDATESEAL_ADMIN_PASSWORD
+        sync: false
+      - key: MANDATESEAL_SESSION_SECRET
+        sync: false
+      # Public origin — set to your Render URL (e.g. https://mandateseal.onrender.com)
+      # or your custom domain.
+      - key: MANDATESEAL_BASE_URL
+        sync: false

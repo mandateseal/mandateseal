@@ -4,6 +4,7 @@ import { randomId } from "@/lib/crypto";
 import { createWebhookSchema, publicWebhook } from "@/lib/webhook";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const webhooks = await prisma.webhook.findMany({ orderBy: { createdAt: "asc" } });

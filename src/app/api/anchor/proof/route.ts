@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { buildAnchorProof } from "@/lib/anchor";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 // GET /api/anchor/proof?receiptId=…
 export async function GET(req: Request) {

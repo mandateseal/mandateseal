@@ -6,6 +6,7 @@ import { publicAgent, publicMandate } from "@/lib/serialize";
 import { DEFAULT_MANDATE } from "@/lib/constants";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const agents = await prisma.agent.findMany({ orderBy: { createdAt: "desc" } });

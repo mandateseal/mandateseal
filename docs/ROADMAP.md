@@ -1,223 +1,353 @@
-# MandateSeal — Roadmap
+# MandateSeal Roadmap
 
-Status: **shipped** · **next up** · **planned** · **later**
+MandateSeal is not a dashboard-first product. It is an agent action gateway that
+is growing into trust infrastructure for autonomous AI agents.
 
-Source of truth: [`src/lib/roadmap.ts`](../src/lib/roadmap.ts). Web view: `/roadmap`.
+The roadmap is split into two views:
 
----
+- Public roadmap: what users, developers, and early customers need to understand.
+- Technical roadmap: what the product team is building and hardening.
 
-## v0.1 — Agent Action Gateway *(shipped)*
+Status labels:
 
-> Preflight checks, mandate rules, policy decisions, signed receipts, and receipt verification.
-
-**Goal:** prove the core loop — every agent action passes a mandate, every decision produces a verifiable receipt.
-
-**Ships**
-- Agents, mandates, receipts persisted (SQLite + Prisma)
-- `POST /api/check` with Bearer auth, 10-rule policy engine
-- HMAC-SHA256 signed receipts over canonical JSON
-- `/api/verify` (by id or full payload), tamper detection
-- Dashboard: agent profile, mandate builder, action simulator, decision card, receipt card, archive
-- TypeScript SDK skeleton (`check`, `createReceipt`, `verifyReceipt`)
-
-**Success criteria.** A signed receipt of any decision can be independently verified by a third party without contacting MandateSeal.
-
-**Effort.** Shipped. 2–3 days of GA cleanup remaining (Ed25519, mandate snapshot in receipt, dashboard auth).
+- Implemented: feature exists in the codebase.
+- Beta: usable, but still needs polish, testing, or security review.
+- Experimental: prototype exists, but not ready for broad usage.
+- Planned: not built yet or reserved for production hardening.
 
 ---
 
-## v0.2 — Human Approval Queue *(next up)*
+## Public Roadmap
 
-> Turn `NEEDS_APPROVAL` into a real workflow with pending actions, approve/reject decisions, reviewer notes, and expiration windows.
+### Phase 1 - Agent Action Control
 
-**Goal:** make `NEEDS_APPROVAL` real. Today it's a sticker on a receipt; tomorrow it's a workflow humans actually clear.
+Mandates, preflight checks, policy decisions, and signed receipts.
 
-**Ships**
-- `Approval` model: receiptId, requestedAt, decidedAt, decidedBy, decisionNote, ttl
-- `/approvals` dashboard page with diff view (action requested vs mandate rule)
-- `POST /api/approvals/:id/approve|deny` with admin auth
-- Long-poll endpoint so SDK can block until human decides
-- TTL: pending items auto-deny after configurable timeout
-- Stub Slack/email notification (full integration in v0.8)
+Users can define what an agent is allowed to do, check every action before it
+runs, and generate proof for every decision.
 
-**Success criteria.** Agent issues `buy_dataset` → SDK blocks → human clicks Approve → agent unblocks and proceeds.
+### Phase 2 - Human Oversight
 
-**Depends on.** v0.1 GA (dashboard auth).
+Approval queues, reviewer decisions, and safer escalation for risky actions.
 
-**Effort.** ~1 week.
+Agents can continue autonomously for low-risk actions, but sensitive or costly
+actions can require a human decision before execution.
 
----
+### Phase 3 - Audit And Spend Control
 
-## v0.3 — Developer SDK
+Receipt history, audit logs, verification, exports, and budget enforcement.
 
-> Guard agent actions with one function call. TypeScript SDK first, with `check`, `seal`, and `verify` helpers.
+Teams can inspect what agents attempted, why actions were approved or blocked,
+and how much each agent is spending.
 
-**Goal:** move from thin HTTP wrapper to true ergonomics.
+### Phase 4 - Developer Infrastructure
 
-**Ships**
-- `seal.guard(action, async () => doIt())` — checks, executes only if APPROVED, blocks on approval, seals outcome
-- `check` / `seal` / `verify` as the named primitives
-- Framework adapters: `@mandateseal/vercel-ai`, `@mandateseal/openai-tools`, `@mandateseal/langchain`
-- Python SDK with parity
-- CLI: `npx mandateseal verify ./receipt.json`, `npx mandateseal tail`
-- Publish to npm + PyPI
+SDK, CLI, tool gateway, webhooks, and agent framework integrations.
 
-**Success criteria.** A developer drops 3 lines into an existing OpenAI tool-use loop and gets enforced spending + a receipt log.
+Developers can plug MandateSeal into real agent apps, route tool calls through
+policy, and react to signed events.
 
-**Depends on.** v0.1 GA.
+### Phase 5 - Public Proof
 
-**Effort.** ~2 weeks.
+Public receipt explorer, merkle anchors, and onchain verification.
+
+Receipts become shareable proof artifacts that can be verified outside the
+dashboard.
 
 ---
 
-## v0.4 — Audit Log & Receipt History
+## Technical Roadmap
 
-> Searchable action history for agents, mandates, policy decisions, costs, and receipts.
+### v0.1 - Agent Action Gateway
 
-**Goal:** v0.1 stores and lists raw receipts. v0.4 makes them searchable, filterable, and analyzable.
+Status: Implemented
 
-**Ships**
-- Multi-dimensional filter: date range, decision, tool, action, cost band, agent
-- Full-text search across reason / matchedRule / target
-- Per-agent dashboards: time-series charts of decisions, blocked-rate, cost trend
-- Per-mandate analytics: which rules fire most, false-positive review
-- Export: CSV and JSON for finance / compliance
-- Retention policies + archive-to-cold-storage
-- Log integrity check (per-receipt hash already in v0.1; v0.4 adds a roll-up audit endpoint)
+Core product loop.
 
-**Success criteria.** On-call answers *"why did agent X get blocked yesterday between 14:00–15:00"* in under 30 seconds.
+Users can:
 
-**Depends on.** v0.1 GA. Postgres recommended; small datasets still fine on SQLite.
+- Create agents
+- Create mandates
+- Run preflight checks with `POST /api/check`
+- Get `APPROVED`, `BLOCKED`, or `NEEDS_APPROVAL` decisions
+- Generate Ed25519-signed receipts
+- Verify receipts against the public key
 
-**Effort.** ~1.5 weeks.
+Main value:
+
+MandateSeal can control agent actions before execution and produce proof after.
+
+### v0.2 - Human Approval Queue
+
+Status: Implemented
+
+Turns risky actions into a real workflow.
+
+Users can:
+
+- See pending risky actions
+- Approve or deny actions
+- Add reviewer notes
+- Track approval status
+- Let SDK callers wait until a human resolves the action
+- Expire stale approval requests
+
+Main value:
+
+Autonomous agents can escalate risky actions to humans without custom glue code.
+
+### v0.3 - Developer SDK And CLI
+
+Status: Implemented
+
+Makes MandateSeal usable from code and terminal workflows.
+
+Developers can:
+
+- Use the TypeScript SDK
+- Call `seal.check()`
+- Call `seal.guard(action, fn)`
+- Verify receipts
+- Use the CLI for `verify`, `tail`, `check`, `gen-keys`, and `pubkey`
+
+Main value:
+
+Developers can integrate MandateSeal into an existing agent loop with minimal code.
+
+### v0.4 - Audit Log And Receipt History
+
+Status: Implemented
+
+Makes every agent action searchable and reviewable.
+
+Users can:
+
+- Browse receipt history
+- Filter by agent, tool, action, decision, risk, date, and cost
+- Search reason, matched rule, target, action, and tool
+- Export receipts to CSV
+- Run receipt integrity checks
+- View audit stats
+
+Main value:
+
+Teams can understand what their agents tried to do and why MandateSeal approved
+or blocked each action.
+
+### v0.5 - Public Receipt Explorer
+
+Status: Beta
+
+Turns receipts into shareable proof.
+
+Users can:
+
+- Open public receipt pages
+- Verify receipt authenticity
+- View public agent activity pages
+- Copy receipt links
+- Share action proof
+
+Main value:
+
+Autonomous agent actions can be proven publicly.
+
+Remaining:
+
+- Privacy redaction hardening
+- Copy-as-image
+- Embed cards
+- Field-level public/private controls
+
+### v0.6 - Spend Ledger
+
+Status: Beta
+
+Adds budget control for autonomous agents.
+
+Users can:
+
+- Track daily spend per agent
+- Enforce daily budgets
+- View spend history
+- See blocked overspend attempts
+- Monitor cost usage
+
+Main value:
+
+MandateSeal becomes a cost control layer for AI agents.
+
+Remaining:
+
+- Weekly, monthly, and rolling budget windows
+- Soft caps that require approval instead of blocking
+- Spend forecasting
+- Postgres optimization for larger datasets
+
+### v0.7 - Tool Gateway
+
+Status: Experimental
+
+MandateSeal starts sitting between agents and tools.
+
+Developers can:
+
+- Register HTTP tools
+- Call tools through the MandateSeal proxy
+- Enforce policy before tool calls
+- Generate receipts for tool calls
+
+Main value:
+
+MandateSeal becomes infrastructure between agents and external tools.
+
+Remaining:
+
+- MCP server support
+- OpenAPI tool adapters
+- Tool quotas
+- Replay protection
+- Post-execution outcome receipts
+
+### v0.8 - Webhooks
+
+Status: Experimental
+
+Allows other apps to react to MandateSeal events.
+
+Developers can:
+
+- Create webhook endpoints
+- Receive signed events
+- Track delivery attempts
+- Get notified when receipts are created, blocked, or need approval
+
+Main value:
+
+MandateSeal can integrate with external systems.
+
+Remaining:
+
+- Manual replay
+- Slack, Discord, and PagerDuty templates
+- Queue-based delivery
+- Production retry worker
+
+### v0.9 - Receipt Anchors
+
+Status: Experimental
+
+Prepares receipts for tamper-evident external proof.
+
+Users can:
+
+- Batch receipt hashes
+- Create merkle roots
+- Verify anchor proofs
+- Audit anchor chains
+
+Main value:
+
+MandateSeal receipts become stronger proof artifacts.
+
+Remaining:
+
+- Base onchain anchoring
+- Transaction hash storage
+- Public chain verification
+- Anchor explorer UX
+
+### v1.0 - Production Hardening
+
+Status: Planned
+
+v1.0 should not be a major feature release. It should make MandateSeal stable
+enough for real customers.
+
+Focus:
+
+- Reliability
+- Security
+- Tests
+- Docs
+- Deployment
+- Admin auth
+- API key lifecycle
+- Privacy redaction
+- API stability
+- Database migration path
+- Rate limiting
+- Multi-tenant workspace isolation
+
+Main value:
+
+MandateSeal becomes production-ready trust infrastructure for autonomous AI
+agents.
 
 ---
 
-## v0.5 — Public Receipt Explorer
+## Current Status Summary
 
-> Share and verify autonomous action receipts with public receipt pages, proof links, and copyable verification payloads.
-
-**Goal:** receipts become shareable artifacts. Anyone with a link can verify.
-
-**Ships**
-- Public `/r/:receiptId` page — read-only signed receipt with Verify button
-- Public verifier accepts Ed25519 receipts; validates against agent's published public key
-- Per-agent public profile (`/a/:agentId`): decision distribution, blocked-rate, sealed receipts
-- Copy-as-image, embed iframe, OG meta for share previews
-- Privacy controls: hash/redact private mandate fields and `rawPayload.metadata`
-
-**Success criteria.** A tweet linking `mandateseal.app/r/rct_xxx` renders a verifiable proof card.
-
-**Depends on.** v0.1 GA (Ed25519), v0.3 (SDK adoption → volume), v0.4 (internal review before public).
-
-**Effort.** ~1.5 weeks.
-
----
-
-## v0.6 — Spend Ledger
-
-> Track daily budgets, usage, cost limits, per-agent spend, per-tool spend, and blocked spend attempts.
-
-**Goal:** close the budget gap. `dailyBudgetUsd` is stored today but not enforced. v0.6 actually aggregates and enforces.
-
-**Ships**
-- New policy rule: `sum(today's APPROVED).cost + this.cost > dailyBudgetUsd` → `NEEDS_APPROVAL` or `BLOCKED` (configurable)
-- Budget windows: daily / weekly / monthly / rolling-Nh
-- Soft cap → approval, hard cap → block
-- Per-tool, per-action spend breakdown
-- Spend forecast: extrapolate burn rate vs window
-- Finance CSV export
-- Migration: SQLite → Postgres (aggregate queries demand it)
-
-**Success criteria.** Agent gets blocked at $25.00/day cumulative, not just per-action.
-
-**Depends on.** Postgres migration.
-
-**Effort.** ~2 weeks.
-
----
-
-## v0.7 — Tool Gateway
-
-> MandateSeal becomes a policy layer for agent tools, function calls, MCP servers, and external APIs.
-
-**Goal:** stop being a wrapper SDK; become the wire between agents and tools.
-
-**Ships**
-- MandateSeal as MCP (Model Context Protocol) server — agent connects to MandateSeal, MandateSeal proxies to upstream tools
-- Tool registry: register once, attach mandates, all agents inherit policy
-- Adapters for HTTP webhook tools, OpenAPI specs, MCP servers
-- Per-tool quotas (calls/min, $/call)
-- Response interception: mask/redact tool responses (PII, secrets) before they reach the agent
-- Replay protection (nonce on tool calls)
-
-**Success criteria.** Swap an agent's MCP server URL from raw tool to MandateSeal — zero code change, full audit trail.
-
-**Depends on.** v0.6 (spend enforcement is load-bearing for a tool proxy).
-
-**Effort.** ~3–4 weeks. The biggest version; the pivot from library to infrastructure.
-
----
-
-## v0.8 — Webhooks
-
-> Notify apps when actions are approved, blocked, require approval, executed, or sealed.
-
-**Goal:** push instead of poll. Apps react to decisions.
-
-**Ships**
-- `Webhook` model per agent/workspace: url, secret, events
-- Events: `receipt.created`, `receipt.blocked`, `approval.requested`, `approval.decided`, `budget.threshold`, `tamper.detected`
-- Signed webhook payloads (same Ed25519 key as receipts), retry with exponential backoff
-- Delivery log + manual replay
-- Built-in integrations: Slack, Discord, PagerDuty, generic HTTP
-
-**Success criteria.** Slack channel posts a stamp every time a HIGH-risk action is blocked.
-
-**Depends on.** v0.2 (approval events), v0.6 (budget events).
-
-**Effort.** ~4–5 days.
-
----
-
-## v0.9 — Onchain Anchors
-
-> Anchor receipt hashes on Base for public proof and tamper-evident external verification.
-
-**Goal:** push past "trust the MandateSeal signing key" to "trust the chain."
-
-**Ships**
-- Batched merkle root anchored to Base (or Optimism) every N minutes
-- `anchor` field per receipt: `txHash`, `blockNumber`, `merkleProof`
-- Public verifier extension: independently confirm a receipt was included in an on-chain root at a specific time
-- Anchor contract: dumb on purpose (`mapping(uint => bytes32) roots;`) — no off-chain trust assumption
-- Gas optimization: only roots go on-chain, never per-receipt
-- Optional EAS (Ethereum Attestation Service) schema for high-value receipts
-
-**Success criteria.** A court-admissible chain of "MandateSeal said this receipt existed before 2026-XX-XX block N."
-
-**Depends on.** Everything. The capstone.
-
-**Effort.** ~2–3 weeks.
-
----
-
-## Cross-cutting concerns
-
-| Concern | Slot it into | Why |
+| Version | Name | Status |
 |---|---|---|
-| Ed25519 signatures | v0.1 GA | Unblocks v0.5 (public verify) and v0.9 (onchain) |
-| Dashboard auth (multi-user, RBAC) | v0.2 | First version where humans interact |
-| Test suite (Vitest + Playwright) | v0.1 GA | Everything after assumes a regression net |
-| Multi-tenant (orgs / workspaces) | v0.3 | Once SDK adoption starts, isolation matters |
-| Postgres migration | v0.6 | Aggregate queries force the move |
-| Rate-limit on `/api/check` | v0.7 | Becomes load-bearing infra at v0.7 |
-| Audit-log hash chain (merkle) | v0.9 | Natural precursor to onchain anchors |
+| v0.1 | Agent Action Gateway | Implemented |
+| v0.2 | Human Approval Queue | Implemented |
+| v0.3 | Developer SDK And CLI | Implemented |
+| v0.4 | Audit Log And Receipt History | Implemented |
+| v0.5 | Public Receipt Explorer | Beta |
+| v0.6 | Spend Ledger | Beta |
+| v0.7 | Tool Gateway | Experimental |
+| v0.8 | Webhooks | Experimental |
+| v0.9 | Receipt Anchors | Experimental |
+| v1.0 | Production Hardening | Planned |
 
 ---
 
-## Order trade-offs worth considering
+## Not Yet
 
-- **v0.3 before v0.2?** If acquisition is dev-led, polish the SDK before humans-in-loop. Devs adopt; teams add approval workflows when they need it.
-- **v0.8 before v0.6?** Webhooks unlock integrations cheaply. Spend ledger unlocks pricing. Pick which one moves the customer needle first.
-- **v0.9 is a brand bet, not a feature bet.** It's the headline that says we're serious about cryptographic accountability. Worth doing for positioning even if few customers verify the chain.
+MandateSeal is not launching these yet:
+
+- Token
+- Onchain payments
+- Multi-chain proof
+- Public marketplace
+- Enterprise SSO
+- Full MCP marketplace
+- AI risk scoring model
+
+Reason:
+
+Core agent action accountability comes first.
+
+---
+
+## Short Roadmap
+
+MandateSeal roadmap:
+
+1. Control agent actions
+2. Add human approval
+3. Make every action auditable
+4. Give developers SDK and CLI
+5. Route tools through policy
+6. Make receipts publicly verifiable
+7. Anchor proof onchain
+8. Harden for production customers
+
+Approve before. Prove after.
+
+---
+
+## Narrative
+
+Do not present MandateSeal as a feature list.
+
+Present it as a maturity journey:
+
+- Stage 1: Agent safety layer
+- Stage 2: Agent operations layer
+- Stage 3: Developer infrastructure
+- Stage 4: Public proof layer
+- Stage 5: Production trust infrastructure
+
+MandateSeal is moving from agent action control to agent trust infrastructure.

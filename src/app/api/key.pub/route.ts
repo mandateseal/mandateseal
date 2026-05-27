@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getPublicKeyPem } from "@/lib/crypto";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 // GET /api/key.pub
 // Returns the Ed25519 public key in PEM, served as text/plain so it can be

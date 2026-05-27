@@ -4,6 +4,7 @@ import { expireIfDue, toApprovalView } from "@/lib/approval";
 import { publicReceipt } from "@/lib/serialize";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const found = await prisma.approval.findUnique({

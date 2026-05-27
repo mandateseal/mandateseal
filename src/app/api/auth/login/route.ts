@@ -3,6 +3,7 @@ import { z } from "zod";
 import { checkPassword, isAuthEnabled, issueSessionToken, SESSION_COOKIE } from "@/lib/admin-auth";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({ password: z.string().min(1) });
 

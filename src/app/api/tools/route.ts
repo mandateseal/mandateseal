@@ -4,6 +4,7 @@ import { randomId } from "@/lib/crypto";
 import { createToolSchema, publicTool } from "@/lib/tool";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const tools = await prisma.tool.findMany({ orderBy: { createdAt: "asc" } });

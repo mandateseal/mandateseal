@@ -6,6 +6,7 @@ import { publicReceipt } from "@/lib/serialize";
 import { parseReceiptFilter, toPrismaWhere } from "@/lib/receipt-filter";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const CSV_COLUMNS = [
   "id",

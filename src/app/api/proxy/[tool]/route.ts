@@ -4,6 +4,7 @@ import { authenticateAgent } from "@/lib/auth";
 import { evaluateAndSeal } from "@/lib/receipt";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const PROXY_TIMEOUT_MS = 25_000;
 const FORWARD_DROP_HEADERS = new Set([

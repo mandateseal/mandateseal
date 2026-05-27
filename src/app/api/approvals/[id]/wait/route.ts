@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { expireIfDue, toApprovalView } from "@/lib/approval";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 // GET /api/approvals/:id/wait?timeoutMs=25000
 // Long-poll: blocks until the approval is no longer pending OR until timeout.

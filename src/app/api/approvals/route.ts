@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { expireAllOverdue, toApprovalListItem } from "@/lib/approval";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 // GET /api/approvals?status=pending&agentId=...&limit=N
 export async function GET(req: Request) {

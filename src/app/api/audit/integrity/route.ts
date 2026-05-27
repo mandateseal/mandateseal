@@ -4,6 +4,7 @@ import { recomputeAndVerify } from "@/lib/receipt";
 import { publicReceipt } from "@/lib/serialize";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 interface IntegrityFailure {
   id: string;

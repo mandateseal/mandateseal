@@ -4,6 +4,7 @@ import { authenticateAgent } from "@/lib/auth";
 import { evaluateAndSeal } from "@/lib/receipt";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   const agent = await authenticateAgent(req);
