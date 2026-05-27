@@ -5,9 +5,9 @@ import { Footer } from "@/components/Footer";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "MandateSeal - Approve before. Prove after.",
+  title: "MandateSeal - Permission and proof for crypto agents.",
   description:
-    "MandateSeal is a trust layer for autonomous AI agents. Pre-action mandate enforcement and post-action signed receipts.",
+    "MandateSeal is the permission and proof layer for autonomous crypto agents. Wallet mandates before action, signed receipts after, onchain anchors anyone can verify.",
   icons: {
     icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
   },

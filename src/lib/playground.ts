@@ -1,6 +1,6 @@
 // MandateSeal playground — scripted demo agent.
 //
-// Eight hand-tuned actions that an autonomous research agent might attempt.
+// Eight hand-tuned actions that an autonomous crypto agent might attempt.
 // Each runs through the *real* policy engine + receipt sealer (Ed25519
 // signature, canonical hash) but is NOT persisted to the database. The point
 // is to show a visitor what MandateSeal does end-to-end in one page — without
@@ -9,24 +9,46 @@
 import { hashCanonical, signReceipt, randomId } from "./crypto";
 import { evaluatePolicy, type MandateSnapshot } from "./policy";
 import type { ActionRequest } from "./schemas";
-import { DEFAULT_AGENT, DEFAULT_MANDATE } from "./constants";
+import { DEFAULT_AGENT } from "./constants";
 import type { ReceiptRecord } from "./receipt";
 
+const DEMO_RECIPIENT_BLOCKED = "0x" + "de".repeat(20);
+const DEMO_RECIPIENT_OK = "0x" + "ab".repeat(20);
+const DEMO_DEX = "0x" + "11".repeat(20);
+const DEMO_UNKNOWN_CONTRACT = "0x" + "22".repeat(20);
+const DEMO_GOVERNOR = "0x" + "33".repeat(20);
+const DEMO_OWNER = "0x" + "fb".repeat(20);
+const DEMO_AGENT_WALLET = "0x" + "a4".repeat(20);
+
+// v0.2 — wallet-aware demo mandate. Drives the crypto rules in the policy
+// engine end-to-end so the visitor can see every crypto rule fire at least
+// once across the script.
 function demoSnapshot(): MandateSnapshot {
   return {
-    id: DEFAULT_MANDATE.id,
+    id: "mandate_research_budget_v1",
     agentId: DEFAULT_AGENT.id,
-    name: DEFAULT_MANDATE.name,
-    enabled: DEFAULT_MANDATE.enabled,
-    dailyBudgetUsd: DEFAULT_MANDATE.dailyBudgetUsd,
-    maxCostPerActionUsd: DEFAULT_MANDATE.maxCostPerActionUsd,
-    approvalThresholdUsd: DEFAULT_MANDATE.approvalThresholdUsd,
-    allowedTools: DEFAULT_MANDATE.allowedTools,
-    blockedTools: DEFAULT_MANDATE.blockedTools,
-    blockedActions: DEFAULT_MANDATE.blockedActions,
-    approvalRequiredActions: DEFAULT_MANDATE.approvalRequiredActions,
-    allowedDomains: DEFAULT_MANDATE.allowedDomains,
-    blockedDomains: DEFAULT_MANDATE.blockedDomains,
+    name: "research-budget-v1",
+    enabled: true,
+    dailyBudgetUsd: 25,
+    maxCostPerActionUsd: 2,
+    approvalThresholdUsd: 5,
+    allowedTools: [],
+    blockedTools: ["shell_exec"],
+    blockedActions: [],
+    approvalRequiredActions: [],
+    allowedDomains: [],
+    blockedDomains: [],
+    agentWallet: DEMO_AGENT_WALLET,
+    ownerWallet: DEMO_OWNER,
+    allowedChains: ["base", "base-sepolia"],
+    allowedTokens: ["USDC", "ETH"],
+    allowedContracts: [DEMO_DEX, DEMO_GOVERNOR],
+    blockedContracts: [],
+    blockedRecipients: [DEMO_RECIPIENT_BLOCKED],
+    maxTxValueUsd: 200,
+    dailyTokenSpendUsd: 500,
+    requireApprovalForSwaps: true,
+    requireApprovalForTransfers: false,
   };
 }
 
@@ -37,36 +59,112 @@ export interface ScriptedAction {
 
 export const SCRIPT: ScriptedAction[] = [
   {
-    description: "search github.com for autonomous-agent papers",
-    action: { actionType: "search", tool: "web_search", target: "github.com", costUsd: 0.05 },
+    description: "transfer 25 USDC on Base to a trusted recipient",
+    action: {
+      actionType: "transfer_usdc",
+      tool: "wallet",
+      target: DEMO_RECIPIENT_OK,
+      costUsd: 0,
+      chain: "base",
+      token: "USDC",
+      amount: "25000000",
+      txValueUsd: 25,
+      recipient: DEMO_RECIPIENT_OK,
+    },
   },
   {
-    description: "fetch OpenAI API docs",
-    action: { actionType: "read", tool: "web_search", target: "api.openai.com", costUsd: 0.05 },
+    description: "swap 0.001 ETH → USDC on Base",
+    action: {
+      actionType: "token_swap",
+      tool: "dex",
+      target: DEMO_DEX,
+      costUsd: 0,
+      chain: "base",
+      token: "ETH",
+      amount: "1000000000000000",
+      txValueUsd: 3.5,
+      contractAddress: DEMO_DEX,
+      functionSelector: "0x38ed1739",
+    },
   },
   {
-    description: "summarize a paper with paid_api_call",
-    action: { actionType: "summarize", tool: "paid_api_call", target: "api.openai.com", costUsd: 1.2 },
+    description: "DAO vote on a Base governor proposal",
+    action: {
+      actionType: "dao_vote",
+      tool: "governor",
+      target: DEMO_GOVERNOR,
+      costUsd: 0,
+      chain: "base",
+      contractAddress: DEMO_GOVERNOR,
+      functionSelector: "0xa9059cbb",
+    },
   },
   {
-    description: "draft a follow-up email to the author",
-    action: { actionType: "send_email", tool: "email_draft", target: "author@example.com", costUsd: 0 },
+    description: "approve $1 USDC spend to the DEX (finite)",
+    action: {
+      actionType: "token_approval",
+      tool: "wallet",
+      target: DEMO_DEX,
+      costUsd: 0,
+      chain: "base",
+      token: "USDC",
+      amount: "1000000",
+      contractAddress: DEMO_DEX,
+      functionSelector: "0x095ea7b3",
+    },
   },
   {
-    description: "buy a $4.99 paper dataset",
-    action: { actionType: "buy_dataset", tool: "paid_api_call", target: "datasets.example.com", costUsd: 4.99 },
+    description: "approve INFINITE USDC spend to the DEX",
+    action: {
+      actionType: "token_approval",
+      tool: "wallet",
+      target: DEMO_DEX,
+      costUsd: 0,
+      chain: "base",
+      token: "USDC",
+      amount: "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      contractAddress: DEMO_DEX,
+      functionSelector: "0x095ea7b3",
+    },
   },
   {
-    description: "scrape unknown-wallet.site for token prices",
-    action: { actionType: "read", tool: "web_search", target: "unknown-wallet.site", costUsd: 0.1 },
+    description: "call an unknown contract method on Base",
+    action: {
+      actionType: "contract_call",
+      tool: "wallet",
+      target: DEMO_UNKNOWN_CONTRACT,
+      costUsd: 0,
+      chain: "base",
+      contractAddress: DEMO_UNKNOWN_CONTRACT,
+      functionSelector: "0xdeadbeef",
+    },
   },
   {
-    description: "open a shell to clean up cache",
-    action: { actionType: "execute_shell_command", tool: "shell_exec", target: "rm -rf /tmp/cache", costUsd: 0 },
+    description: "transfer 250 USDC to a blocked recipient",
+    action: {
+      actionType: "transfer_usdc",
+      tool: "wallet",
+      target: DEMO_RECIPIENT_BLOCKED,
+      costUsd: 0,
+      chain: "base",
+      token: "USDC",
+      amount: "250000000",
+      txValueUsd: 250,
+      recipient: DEMO_RECIPIENT_BLOCKED,
+    },
   },
   {
-    description: "transfer 50 USDC to a wallet",
-    action: { actionType: "transfer_usdc", tool: "wallet_transfer", target: "0xabc...def", costUsd: 50 },
+    description: "bridge 100 USDC Base → Solana (chain not allowed)",
+    action: {
+      actionType: "bridge_transfer",
+      tool: "bridge",
+      target: "solana",
+      costUsd: 0,
+      chain: "solana",
+      token: "USDC",
+      amount: "100000000",
+      txValueUsd: 100,
+    },
   },
 ];
 
@@ -89,8 +187,16 @@ export function runScript(): PlaygroundStep[] {
     const decision = evaluatePolicy(action, snapshot);
 
     const id = randomId("rct");
-    // Stagger timestamps so the demo looks like a real run, not a single tick.
     const timestamp = new Date(baseTime + i * 1500).toISOString();
+
+    const cryptoFields: Record<string, unknown> = {};
+    if (action.chain !== undefined) cryptoFields.chain = action.chain;
+    if (action.token !== undefined) cryptoFields.token = action.token;
+    if (action.amount !== undefined) cryptoFields.amount = action.amount;
+    if (action.txValueUsd !== undefined) cryptoFields.txValueUsd = action.txValueUsd;
+    if (action.recipient !== undefined) cryptoFields.recipient = action.recipient;
+    if (action.contractAddress !== undefined) cryptoFields.contractAddress = action.contractAddress;
+    if (action.functionSelector !== undefined) cryptoFields.functionSelector = action.functionSelector;
 
     const rawPayload: Record<string, unknown> = {
       actionType: action.actionType,
@@ -99,6 +205,7 @@ export function runScript(): PlaygroundStep[] {
       costUsd: action.costUsd,
       metadata: action.metadata ?? null,
       mandateSnapshot: snapshot,
+      ...(Object.keys(cryptoFields).length > 0 ? { crypto: cryptoFields } : {}),
     };
 
     const policyHash = hashCanonical({
@@ -109,6 +216,7 @@ export function runScript(): PlaygroundStep[] {
         target: action.target,
         costUsd: action.costUsd,
         metadata: action.metadata ?? null,
+        ...(Object.keys(cryptoFields).length > 0 ? { crypto: cryptoFields } : {}),
       },
       decision,
     });
@@ -135,7 +243,21 @@ export function runScript(): PlaygroundStep[] {
     return {
       step: i + 1,
       description: s.description,
-      receipt: { ...unsigned, receiptHash, signature, approval: null },
+      receipt: {
+        ...unsigned,
+        receiptHash,
+        signature,
+        approval: null,
+        chain: action.chain ?? null,
+        wallet: action.wallet ?? null,
+        token: action.token ?? null,
+        amount: action.amount ?? null,
+        txValueUsd: action.txValueUsd ?? null,
+        recipient: action.recipient ?? null,
+        contractAddress: action.contractAddress ?? null,
+        functionSelector: action.functionSelector ?? null,
+        txHash: null,
+      },
     };
   });
 }

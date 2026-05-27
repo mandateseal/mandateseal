@@ -25,6 +25,31 @@ export interface ReceiptRecord {
   signature: string;
   rawPayload: Record<string, unknown>;
   approval?: ApprovalView | null;
+  // v0.2 — optional crypto fields. Null on non-crypto actions. Always
+  // included in rawPayload too so the canonical hash already covers them.
+  chain?: string | null;
+  wallet?: string | null;
+  token?: string | null;
+  amount?: string | null;
+  txValueUsd?: number | null;
+  recipient?: string | null;
+  contractAddress?: string | null;
+  functionSelector?: string | null;
+  txHash?: string | null;
+}
+
+function cryptoFieldsOf(action: ActionRequest): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (action.chain !== undefined) out.chain = action.chain;
+  if (action.wallet !== undefined) out.wallet = action.wallet;
+  if (action.token !== undefined) out.token = action.token;
+  if (action.amount !== undefined) out.amount = action.amount;
+  if (action.txValueUsd !== undefined) out.txValueUsd = action.txValueUsd;
+  if (action.recipient !== undefined) out.recipient = action.recipient;
+  if (action.contractAddress !== undefined) out.contractAddress = action.contractAddress;
+  if (action.functionSelector !== undefined) out.functionSelector = action.functionSelector;
+  if (action.txHash !== undefined) out.txHash = action.txHash;
+  return out;
 }
 
 /**
@@ -69,6 +94,8 @@ export async function evaluateAndSeal(action: ActionRequest): Promise<ReceiptRec
   const id = randomId("rct");
   const timestamp = new Date().toISOString();
 
+  const crypto = cryptoFieldsOf(action);
+
   const rawPayload: Record<string, unknown> = {
     actionType: action.actionType,
     tool: action.tool,
@@ -76,6 +103,7 @@ export async function evaluateAndSeal(action: ActionRequest): Promise<ReceiptRec
     costUsd: action.costUsd,
     metadata: action.metadata ?? null,
     mandateSnapshot: snapshot,
+    ...(Object.keys(crypto).length > 0 ? { crypto } : {}),
   };
 
   const policyHash = hashCanonical({
@@ -86,6 +114,7 @@ export async function evaluateAndSeal(action: ActionRequest): Promise<ReceiptRec
       target: action.target,
       costUsd: action.costUsd,
       metadata: action.metadata ?? null,
+      ...(Object.keys(crypto).length > 0 ? { crypto } : {}),
     },
     decision,
   });
@@ -128,6 +157,17 @@ export async function evaluateAndSeal(action: ActionRequest): Promise<ReceiptRec
       receiptHash,
       signature,
       rawPayload: JSON.stringify(rawPayload),
+      // v0.2 — denormalize crypto fields onto the row for indexable filters
+      // (chain/token/recipient/contractAddress) without parsing rawPayload.
+      chain: action.chain ?? null,
+      wallet: action.wallet ?? null,
+      token: action.token ?? null,
+      amount: action.amount ?? null,
+      txValueUsd: action.txValueUsd ?? null,
+      recipient: action.recipient ?? null,
+      contractAddress: action.contractAddress ?? null,
+      functionSelector: action.functionSelector ?? null,
+      txHash: action.txHash ?? null,
     },
   });
 
@@ -140,7 +180,21 @@ export async function evaluateAndSeal(action: ActionRequest): Promise<ReceiptRec
     approval = toApprovalView(a);
   }
 
-  const sealedReceipt = { ...unsignedReceipt, receiptHash, signature, approval };
+  const sealedReceipt: ReceiptRecord = {
+    ...unsignedReceipt,
+    receiptHash,
+    signature,
+    approval,
+    chain: action.chain ?? null,
+    wallet: action.wallet ?? null,
+    token: action.token ?? null,
+    amount: action.amount ?? null,
+    txValueUsd: action.txValueUsd ?? null,
+    recipient: action.recipient ?? null,
+    contractAddress: action.contractAddress ?? null,
+    functionSelector: action.functionSelector ?? null,
+    txHash: action.txHash ?? null,
+  };
 
   // v0.8 — fan out webhooks. Detached: emit() persists delivery rows and runs
   // retries on its own; this function returns immediately.
@@ -215,12 +269,14 @@ export function reEvaluateFromSnapshot(receipt: VerifyInput): {
 } {
   const snapshot = (receipt.rawPayload as { mandateSnapshot?: MandateSnapshot } | null | undefined)?.mandateSnapshot;
   if (!snapshot) return { matched: true, expected: null };
+  const crypto = (receipt.rawPayload as { crypto?: Record<string, unknown> } | null | undefined)?.crypto ?? {};
   const action = {
     agentId: receipt.agentId,
     actionType: receipt.actionType,
     tool: receipt.tool,
     target: receipt.target,
     costUsd: receipt.costUsd,
+    ...crypto,
   };
   const expected = evaluatePolicy(action as unknown as ActionRequest, snapshot);
   const matched =

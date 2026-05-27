@@ -165,3 +165,182 @@ describe("evaluatePolicy — domain parsing", () => {
     expect(d.decision).toBe("APPROVED");
   });
 });
+
+describe("v0.2 — crypto policy rules", () => {
+  const cryptoSnap: MandateSnapshot = {
+    ...baseSnapshot,
+    blockedTools: [],
+    blockedActions: [],
+    allowedTools: [],
+    allowedDomains: [],
+    blockedDomains: [],
+    approvalRequiredActions: [],
+    maxCostPerActionUsd: 1000,
+    approvalThresholdUsd: 1000,
+    allowedChains: ["base", "base-sepolia"],
+    allowedTokens: ["USDC", "ETH"],
+    allowedContracts: ["0x" + "11".repeat(20)],
+    blockedContracts: ["0x" + "ba".repeat(20)],
+    blockedRecipients: ["0x" + "de".repeat(20)],
+    maxTxValueUsd: 100,
+    requireApprovalForSwaps: true,
+    requireApprovalForTransfers: true,
+  };
+
+  const cryptoAction: ActionRequest = {
+    agentId: "a1",
+    actionType: "transfer_usdc",
+    tool: "wallet",
+    target: "0x" + "ab".repeat(20),
+    costUsd: 0,
+    chain: "base",
+    token: "USDC",
+    amount: "25000000",
+    txValueUsd: 25,
+    recipient: "0x" + "ab".repeat(20),
+  };
+
+  it("C1: recipient on block list → BLOCKED", () => {
+    const d = evaluatePolicy(
+      { ...cryptoAction, recipient: "0x" + "de".repeat(20) },
+      cryptoSnap,
+    );
+    expect(d.decision).toBe("BLOCKED");
+    expect(d.matchedRule).toContain("blockedRecipients");
+  });
+
+  it("C2: contract on block list → BLOCKED", () => {
+    const d = evaluatePolicy(
+      {
+        ...cryptoAction,
+        actionType: "contract_call",
+        contractAddress: "0x" + "ba".repeat(20),
+        functionSelector: "0xa9059cbb",
+      },
+      cryptoSnap,
+    );
+    expect(d.decision).toBe("BLOCKED");
+    expect(d.matchedRule).toContain("blockedContracts");
+  });
+
+  it("C3: chain not in allowedChains → BLOCKED", () => {
+    const d = evaluatePolicy({ ...cryptoAction, chain: "solana" }, cryptoSnap);
+    expect(d.decision).toBe("BLOCKED");
+    expect(d.matchedRule).toContain("allowedChains");
+  });
+
+  it("C4: token not in allowedTokens → BLOCKED", () => {
+    const d = evaluatePolicy({ ...cryptoAction, token: "SHIB" }, cryptoSnap);
+    expect(d.decision).toBe("BLOCKED");
+    expect(d.matchedRule).toContain("allowedTokens");
+  });
+
+  it("C5: txValueUsd over max → BLOCKED", () => {
+    const d = evaluatePolicy(
+      { ...cryptoAction, txValueUsd: 250 },
+      cryptoSnap,
+    );
+    expect(d.decision).toBe("BLOCKED");
+    expect(d.matchedRule).toBe("txValueUsd > maxTxValueUsd");
+    expect(d.riskLevel).toBe("HIGH");
+  });
+
+  it("C6: infinite approval → BLOCKED (uint256 max)", () => {
+    const d = evaluatePolicy(
+      {
+        ...cryptoAction,
+        actionType: "token_approval",
+        amount: "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      },
+      cryptoSnap,
+    );
+    expect(d.decision).toBe("BLOCKED");
+    expect(d.matchedRule).toBe("infiniteApproval");
+  });
+
+  it("C6: infinite approval → BLOCKED (string 'max' shorthand)", () => {
+    const d = evaluatePolicy(
+      { ...cryptoAction, actionType: "token_approval", amount: "max" },
+      cryptoSnap,
+    );
+    expect(d.decision).toBe("BLOCKED");
+  });
+
+  it("C6: finite approval passes the rule", () => {
+    const d = evaluatePolicy(
+      { ...cryptoAction, actionType: "token_approval", amount: "1000000" },
+      { ...cryptoSnap, requireApprovalForTransfers: false },
+    );
+    expect(d.decision).not.toBe("BLOCKED");
+  });
+
+  it("C7: contract not in allowedContracts → BLOCKED", () => {
+    const d = evaluatePolicy(
+      {
+        ...cryptoAction,
+        actionType: "contract_call",
+        contractAddress: "0x" + "cc".repeat(20),
+        functionSelector: "0xa9059cbb",
+      },
+      cryptoSnap,
+    );
+    expect(d.decision).toBe("BLOCKED");
+    expect(d.matchedRule).toContain("allowedContracts");
+  });
+
+  it("C8: token_swap → NEEDS_APPROVAL when requireApprovalForSwaps", () => {
+    const d = evaluatePolicy(
+      { ...cryptoAction, actionType: "token_swap" },
+      cryptoSnap,
+    );
+    expect(d.decision).toBe("NEEDS_APPROVAL");
+    expect(d.matchedRule).toBe("requireApprovalForSwaps");
+  });
+
+  it("C9: transfer_usdc → NEEDS_APPROVAL when requireApprovalForTransfers", () => {
+    const d = evaluatePolicy(cryptoAction, cryptoSnap);
+    expect(d.decision).toBe("NEEDS_APPROVAL");
+    expect(d.matchedRule).toBe("requireApprovalForTransfers");
+  });
+
+  it("C10: contract_call with unknown selector → NEEDS_APPROVAL", () => {
+    const d = evaluatePolicy(
+      {
+        ...cryptoAction,
+        actionType: "contract_call",
+        contractAddress: "0x" + "11".repeat(20),
+        functionSelector: "0xdeadbeef",
+      },
+      { ...cryptoSnap, requireApprovalForTransfers: false },
+    );
+    expect(d.decision).toBe("NEEDS_APPROVAL");
+    expect(d.matchedRule).toBe("unknownSelector");
+  });
+
+  it("C10: contract_call with known selector passes", () => {
+    const d = evaluatePolicy(
+      {
+        ...cryptoAction,
+        actionType: "contract_call",
+        contractAddress: "0x" + "11".repeat(20),
+        functionSelector: "0xa9059cbb", // transfer
+      },
+      { ...cryptoSnap, requireApprovalForTransfers: false },
+    );
+    expect(d.decision).toBe("APPROVED");
+  });
+
+  it("crypto rules skipped when fields absent (legacy actions still work)", () => {
+    const d = evaluatePolicy(
+      {
+        agentId: "a1",
+        actionType: "search",
+        tool: "web_search",
+        target: "github.com",
+        costUsd: 0.01,
+      },
+      { ...cryptoSnap, allowedDomains: ["github.com"] },
+    );
+    expect(d.decision).toBe("APPROVED");
+  });
+});

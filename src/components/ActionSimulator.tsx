@@ -7,9 +7,86 @@ export interface SimAction {
   tool: string;
   costUsd: number;
   target: string;
+  // v0.2 — optional crypto fields. Submitted with the action when present.
+  chain?: string;
+  token?: string;
+  amount?: string;
+  txValueUsd?: number;
+  recipient?: string;
+  contractAddress?: string;
+  functionSelector?: string;
 }
 
 export const PRESET_ACTIONS: SimAction[] = [
+  // --- v0.2 crypto presets (first so they're the default discovery) -------
+  {
+    label: "Transfer 25 USDC on Base",
+    tool: "wallet",
+    actionType: "transfer_usdc",
+    costUsd: 0,
+    target: "0x" + "ab".repeat(20),
+    chain: "base",
+    token: "USDC",
+    amount: "25000000",
+    txValueUsd: 25,
+    recipient: "0x" + "ab".repeat(20),
+  },
+  {
+    label: "Swap ETH → USDC",
+    tool: "dex",
+    actionType: "token_swap",
+    costUsd: 0,
+    target: "0x" + "11".repeat(20),
+    chain: "base",
+    token: "ETH",
+    amount: "1000000000000000",
+    txValueUsd: 3.5,
+    contractAddress: "0x" + "11".repeat(20),
+    functionSelector: "0x38ed1739",
+  },
+  {
+    label: "Approve token spend",
+    tool: "wallet",
+    actionType: "token_approval",
+    costUsd: 0,
+    target: "0x" + "11".repeat(20),
+    chain: "base",
+    token: "USDC",
+    amount: "1000000",
+    contractAddress: "0x" + "11".repeat(20),
+    functionSelector: "0x095ea7b3",
+  },
+  {
+    label: "Call unknown contract",
+    tool: "wallet",
+    actionType: "contract_call",
+    costUsd: 0,
+    target: "0x" + "22".repeat(20),
+    chain: "base",
+    contractAddress: "0x" + "22".repeat(20),
+    functionSelector: "0xdeadbeef",
+  },
+  {
+    label: "Bridge funds (Base → Eth)",
+    tool: "bridge",
+    actionType: "bridge_transfer",
+    costUsd: 0,
+    target: "ethereum",
+    chain: "base",
+    token: "USDC",
+    amount: "100000000",
+    txValueUsd: 100,
+  },
+  {
+    label: "DAO vote",
+    tool: "governor",
+    actionType: "dao_vote",
+    costUsd: 0,
+    target: "0x" + "33".repeat(20),
+    chain: "base",
+    contractAddress: "0x" + "33".repeat(20),
+  },
+  // --- legacy / non-crypto presets (kept for backwards compat) ------------
   {
     label: "Call paid API",
     tool: "paid_api_call",
@@ -25,25 +102,11 @@ export const PRESET_ACTIONS: SimAction[] = [
     target: "mail:user@example.com",
   },
   {
-    label: "Transfer USDC",
-    tool: "wallet_transfer",
-    actionType: "transfer_usdc",
-    costUsd: 12,
-    target: "0x123456789",
-  },
-  {
     label: "Run shell command",
     tool: "shell_exec",
     actionType: "execute_shell_command",
     costUsd: 0,
     target: "terminal",
-  },
-  {
-    label: "Read private file",
-    tool: "file_reader",
-    actionType: "read_private_file",
-    costUsd: 0,
-    target: "private-keys.local",
   },
   {
     label: "Buy dataset",

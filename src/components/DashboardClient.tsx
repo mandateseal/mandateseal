@@ -110,6 +110,14 @@ export function DashboardClient({ initial, baseUrl }: { initial: Bootstrap; base
           tool: action.tool,
           target: action.target,
           costUsd: action.costUsd,
+          // v0.2 — pass crypto fields through if the preset provided them.
+          ...(action.chain ? { chain: action.chain } : {}),
+          ...(action.token ? { token: action.token } : {}),
+          ...(action.amount ? { amount: action.amount } : {}),
+          ...(action.txValueUsd !== undefined ? { txValueUsd: action.txValueUsd } : {}),
+          ...(action.recipient ? { recipient: action.recipient } : {}),
+          ...(action.contractAddress ? { contractAddress: action.contractAddress } : {}),
+          ...(action.functionSelector ? { functionSelector: action.functionSelector } : {}),
         }),
       });
       const data = await res.json();
@@ -136,12 +144,13 @@ export function DashboardClient({ initial, baseUrl }: { initial: Bootstrap; base
   return (
     <div className="page-container py-10 space-y-6">
       <header>
-        <div className="label">CONTROL CONSOLE</div>
+        <div className="label">AGENT CONSOLE</div>
         <h1 className="display-title text-paper text-3xl md:text-4xl mt-2">
-          MANDATESEAL · DASHBOARD
+          MANDATESEAL · AGENT CONSOLE
         </h1>
         <p className="mt-2 text-paperMuted text-sm">
-          Approve before. Prove after. Configure a mandate, then run actions through the policy engine.
+          Configure a wallet mandate, then preview decisions for transfers, swaps, approvals,
+          and contract calls before the agent ever signs a tx.
         </p>
       </header>
 

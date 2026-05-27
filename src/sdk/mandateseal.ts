@@ -20,6 +20,16 @@ export interface ActionRequest {
   target: string;
   costUsd: number;
   metadata?: Record<string, unknown>;
+  // v0.2 — optional crypto fields. Activate crypto-specific policy rules.
+  chain?: string;
+  wallet?: string;
+  token?: string;
+  amount?: string;
+  txValueUsd?: number;
+  recipient?: string;
+  contractAddress?: string;
+  functionSelector?: string;
+  txHash?: string;
 }
 
 export interface Receipt {
@@ -40,6 +50,16 @@ export interface Receipt {
   signature: string;
   rawPayload?: Record<string, unknown>;
   approval?: Approval | null;
+  // v0.2 — crypto fields present on crypto-action receipts.
+  chain?: string | null;
+  wallet?: string | null;
+  token?: string | null;
+  amount?: string | null;
+  txValueUsd?: number | null;
+  recipient?: string | null;
+  contractAddress?: string | null;
+  functionSelector?: string | null;
+  txHash?: string | null;
 }
 
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";

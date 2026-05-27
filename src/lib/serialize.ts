@@ -20,6 +20,16 @@ export interface ReceiptView {
   signature: string;
   rawPayload: Record<string, unknown> | null;
   createdAt: string;
+  // v0.2 — optional crypto fields. Null on non-crypto receipts.
+  chain: string | null;
+  wallet: string | null;
+  token: string | null;
+  amount: string | null;
+  txValueUsd: number | null;
+  recipient: string | null;
+  contractAddress: string | null;
+  functionSelector: string | null;
+  txHash: string | null;
 }
 
 export function publicAgent(a: Agent) {
@@ -84,5 +94,14 @@ export function publicReceipt(r: Receipt): ReceiptView {
     signature: r.signature,
     rawPayload,
     createdAt: r.createdAt.toISOString(),
+    chain: r.chain ?? null,
+    wallet: r.wallet ?? null,
+    token: r.token ?? null,
+    amount: r.amount ?? null,
+    txValueUsd: r.txValueUsd ?? null,
+    recipient: r.recipient ?? null,
+    contractAddress: r.contractAddress ?? null,
+    functionSelector: r.functionSelector ?? null,
+    txHash: r.txHash ?? null,
   };
 }

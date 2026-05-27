@@ -1,15 +1,11 @@
-// MandateSeal example — a "research agent" that wraps every tool call with
-// `seal.guard()`. The "agent" itself is just a scripted sequence: real agent
-// frameworks (LangChain, the Anthropic tool-use API, AutoGen, etc.) plug in
-// the same way — replace the scripted task list with model-decided tool calls.
+// MandateSeal example — an autonomous crypto agent that wraps every onchain
+// action with `seal.guard()`. The "agent" is just a scripted task list; real
+// agent frameworks (Eliza, AutoGen, the Anthropic tool-use API, LangChain,
+// custom loops) plug in the same way — replace the scripted tasks with
+// model-decided actions.
 //
 // Run:
 //   MANDATESEAL_URL=https://mandateseal.vercel.app \
-//   MANDATESEAL_API_KEY=msk_demo_... \
-//   npx tsx examples/research-agent/index.ts
-//
-// Or against a local server:
-//   MANDATESEAL_URL=http://localhost:3000 \
 //   MANDATESEAL_API_KEY=msk_demo_... \
 //   npx tsx examples/research-agent/index.ts
 
@@ -27,36 +23,30 @@ if (!KEY) {
 
 const seal = new MandateSeal({ baseUrl: BASE, apiKey: KEY });
 
-// --- mocked "tools" -----------------------------------------------------------
-// In a real agent these would be real HTTP fetches / LLM tool calls / etc.
-// They're mocked here so the example runs offline and stays deterministic.
+// --- mocked tx senders --------------------------------------------------------
+// In real code these would call viem/ethers to actually sign + broadcast.
+// They're mocked so the example runs offline and stays deterministic.
 
-async function webSearch(target: string): Promise<string> {
+async function sendTransfer(_chain: string, _token: string, _amount: string, _to: string) {
   await new Promise((r) => setTimeout(r, 80));
-  return `[mock] 3 results for "${target}"`;
+  return "[mock] tx 0xdeadbeef… transfer ok";
 }
-
-async function paidApiCall(target: string, prompt: string): Promise<string> {
-  await new Promise((r) => setTimeout(r, 120));
-  return `[mock] ${target} returned a summary of "${prompt}"`;
+async function sendSwap(_chain: string, _from: string, _to: string, _amount: string) {
+  await new Promise((r) => setTimeout(r, 100));
+  return "[mock] tx 0xfeedface… swap ok";
 }
-
-async function emailDraft(to: string, subject: string): Promise<string> {
+async function sendApprove(_chain: string, _token: string, _spender: string, _amount: string) {
   await new Promise((r) => setTimeout(r, 60));
-  return `[mock] drafted email "${subject}" to ${to}`;
+  return "[mock] tx 0xa11ce… approve ok";
+}
+async function sendContractCall(_chain: string, _to: string, _selector: string) {
+  return "[mock] tx 0xbeefbeef… call ok";
 }
 
-async function shellExec(_cmd: string): Promise<string> {
-  // Never actually runs — MandateSeal blocks the tool before this resolves.
-  return "[mock] shell output";
-}
-
-async function walletTransfer(_to: string, _amount: number): Promise<string> {
-  // Never actually runs.
-  return "[mock] tx 0xdead";
-}
-
-// --- agent script -------------------------------------------------------------
+const RECIPIENT_OK = "0x" + "ab".repeat(20);
+const RECIPIENT_BLOCKED = "0x" + "de".repeat(20);
+const DEX = "0x" + "11".repeat(20);
+const UNKNOWN_CONTRACT = "0x" + "22".repeat(20);
 
 interface Task {
   label: string;
@@ -65,83 +55,105 @@ interface Task {
 
 const tasks: Task[] = [
   {
-    label: "search github for autonomous-agent papers",
-    run: () =>
-      seal.guard(
-        {
-          agentId: AGENT_ID,
-          actionType: "search",
-          tool: "web_search",
-          target: "github.com",
-          costUsd: 0.05,
-        },
-        () => webSearch("autonomous agents"),
-      ),
-  },
-  {
-    label: "summarize a paper via OpenAI",
-    run: () =>
-      seal.guard(
-        {
-          agentId: AGENT_ID,
-          actionType: "summarize",
-          tool: "paid_api_call",
-          target: "api.openai.com",
-          costUsd: 1.2,
-        },
-        () => paidApiCall("api.openai.com", "summarize the abstract"),
-      ),
-  },
-  {
-    label: "draft an email to the author",
-    run: () =>
-      seal.guard(
-        {
-          agentId: AGENT_ID,
-          actionType: "send_email",
-          tool: "email_draft",
-          target: "author@example.com",
-          costUsd: 0,
-        },
-        () => emailDraft("author@example.com", "follow-up on the paper"),
-        // approval-required action — wait up to 15s before giving up
-        { approvalTimeoutMs: 15_000 },
-      ),
-  },
-  {
-    label: "clean up cache via shell",
-    run: () =>
-      seal.guard(
-        {
-          agentId: AGENT_ID,
-          actionType: "execute_shell_command",
-          tool: "shell_exec",
-          target: "rm -rf /tmp/cache",
-          costUsd: 0,
-        },
-        () => shellExec("rm -rf /tmp/cache"),
-      ),
-  },
-  {
-    label: "transfer 50 USDC to a wallet",
+    label: "transfer 25 USDC on Base",
     run: () =>
       seal.guard(
         {
           agentId: AGENT_ID,
           actionType: "transfer_usdc",
-          tool: "wallet_transfer",
-          target: "0xabc...def",
-          costUsd: 50,
+          tool: "wallet",
+          target: RECIPIENT_OK,
+          costUsd: 0,
+          chain: "base",
+          token: "USDC",
+          amount: "25000000",
+          txValueUsd: 25,
+          recipient: RECIPIENT_OK,
         },
-        () => walletTransfer("0xabc...def", 50),
+        () => sendTransfer("base", "USDC", "25000000", RECIPIENT_OK),
+      ),
+  },
+  {
+    label: "swap 0.001 ETH → USDC",
+    run: () =>
+      seal.guard(
+        {
+          agentId: AGENT_ID,
+          actionType: "token_swap",
+          tool: "dex",
+          target: DEX,
+          costUsd: 0,
+          chain: "base",
+          token: "ETH",
+          amount: "1000000000000000",
+          txValueUsd: 3.5,
+          contractAddress: DEX,
+          functionSelector: "0x38ed1739",
+        },
+        () => sendSwap("base", "ETH", "USDC", "1000000000000000"),
+        { approvalTimeoutMs: 15_000 },
+      ),
+  },
+  {
+    label: "approve $1 USDC to DEX (finite)",
+    run: () =>
+      seal.guard(
+        {
+          agentId: AGENT_ID,
+          actionType: "token_approval",
+          tool: "wallet",
+          target: DEX,
+          costUsd: 0,
+          chain: "base",
+          token: "USDC",
+          amount: "1000000",
+          contractAddress: DEX,
+          functionSelector: "0x095ea7b3",
+        },
+        () => sendApprove("base", "USDC", DEX, "1000000"),
+      ),
+  },
+  {
+    label: "call unknown contract",
+    run: () =>
+      seal.guard(
+        {
+          agentId: AGENT_ID,
+          actionType: "contract_call",
+          tool: "wallet",
+          target: UNKNOWN_CONTRACT,
+          costUsd: 0,
+          chain: "base",
+          contractAddress: UNKNOWN_CONTRACT,
+          functionSelector: "0xdeadbeef",
+        },
+        () => sendContractCall("base", UNKNOWN_CONTRACT, "0xdeadbeef"),
+        { approvalTimeoutMs: 15_000 },
+      ),
+  },
+  {
+    label: "transfer 250 USDC to a blocked recipient",
+    run: () =>
+      seal.guard(
+        {
+          agentId: AGENT_ID,
+          actionType: "transfer_usdc",
+          tool: "wallet",
+          target: RECIPIENT_BLOCKED,
+          costUsd: 0,
+          chain: "base",
+          token: "USDC",
+          amount: "250000000",
+          txValueUsd: 250,
+          recipient: RECIPIENT_BLOCKED,
+        },
+        () => sendTransfer("base", "USDC", "250000000", RECIPIENT_BLOCKED),
       ),
   },
 ];
 
-// --- runner -------------------------------------------------------------------
-
 async function main() {
-  console.log(`MandateSeal research-agent example`);
+  console.log("MandateSeal research-agent (crypto) example");
   console.log(`  base   : ${BASE}`);
   console.log(`  agent  : ${AGENT_ID}`);
   console.log("");

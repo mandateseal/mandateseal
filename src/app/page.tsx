@@ -3,31 +3,31 @@ import Link from "next/link";
 const pillars = [
   {
     no: "01",
-    title: "Policy checks before actions",
-    body: "Set tool, domain, action, and cost limits for each agent. Requests are checked before the agent is allowed to continue.",
+    title: "Wallet mandates",
+    body: "Per-agent allowlists for chains, tokens, contracts, and recipients — plus tx-value caps, daily token spend, and approval flags for swaps and transfers.",
   },
   {
     no: "02",
-    title: "Receipts for every decision",
-    body: "Each check creates a signed receipt with the agent, mandate, action, reason, policy hash, and receipt hash.",
+    title: "Receipts for every onchain attempt",
+    body: "Every check produces an Ed25519-signed receipt: agent wallet, chain, token, amount, contract, function selector, decision, and reason.",
   },
   {
     no: "03",
-    title: "A log your team can inspect",
-    body: "Search approvals, blocked attempts, spend, and receipt history when you need to answer what an agent tried to do.",
+    title: "Onchain proof, anyone can verify",
+    body: "Receipts are merkle-batched and broadcast to Base. Verifiers fetch the tx, decode calldata, and confirm without ever talking to MandateSeal.",
   },
 ];
 
 const stats = [
-  ["10", "policy rules"],
+  ["20", "policy rules"],
   ["3", "decision states"],
-  ["Ed25519", "signed receipts"],
+  ["Base", "anchored proof"],
 ];
 
 const gatewaySteps = [
-  ["01", "Request", "agent_atlas_01 wants to call web_search"],
-  ["02", "Decision", "tool allowed, cost below max action limit"],
-  ["03", "Receipt", "rct_4d59... sealed and stored"],
+  ["01", "Request", "agent_atlas_01 wants to transfer 25 USDC on Base"],
+  ["02", "Decision", "recipient ok, token allowed, tx value under cap"],
+  ["03", "Receipt", "rct_4d59... sealed, batch anchored onchain"],
 ];
 
 export default function Landing() {
@@ -43,8 +43,9 @@ export default function Landing() {
               <span>Accountability.</span>
             </h1>
             <p className="hero-subcopy">
-              MandateSeal checks agent actions against explicit rules before execution and records
-              the result as a signed receipt your team can verify later.
+              MandateSeal is the permission and proof layer for autonomous crypto agents.
+              Every onchain action is checked against a wallet mandate before execution
+              and sealed into a receipt anyone can verify onchain.
             </p>
             <div className="hero-actions">
               <Link href="/dashboard" className="command-button accent">Open Console</Link>
@@ -76,12 +77,13 @@ export default function Landing() {
             <div className="dashed-rule my-4" />
             <div className="space-y-3 font-tech text-[12px] text-paper">
               <ReceiptLine k="agent" v="Atlas-01" />
-              <ReceiptLine k="action" v="paid_api_call" />
-              <ReceiptLine k="tool" v="web_search" />
-              <ReceiptLine k="target" v="api.openai.com" />
-              <ReceiptLine k="cost" v="$0.02" />
-              <ReceiptLine k="matched rule" v="allowed_tools" />
-              <ReceiptLine k="reason" v="tool allowed, cost under limit" />
+              <ReceiptLine k="action" v="transfer_usdc" />
+              <ReceiptLine k="chain" v="base" />
+              <ReceiptLine k="token" v="USDC" />
+              <ReceiptLine k="amount" v="25.00 ($25)" />
+              <ReceiptLine k="recipient" v="0xabab…abab" />
+              <ReceiptLine k="matched rule" v="allowedTokens ∋ USDC" />
+              <ReceiptLine k="reason" v="recipient ok, value under cap" />
             </div>
             <div className="dashed-rule my-4" />
             <div className="space-y-2 text-[11px] font-tech break-all text-paperMuted">
