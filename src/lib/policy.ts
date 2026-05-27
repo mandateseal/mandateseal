@@ -23,19 +23,21 @@ export interface MandateSnapshot {
   approvalRequiredActions: string[];
   allowedDomains: string[];
   blockedDomains: string[];
-  // v0.2 — wallet mandate. Pre-v0.2 snapshots will have these undefined, so
-  // every check below tolerates absent/empty values.
-  agentWallet?: string | null;
-  ownerWallet?: string | null;
-  allowedChains?: string[];
-  allowedTokens?: string[];
-  allowedContracts?: string[];
-  blockedContracts?: string[];
-  blockedRecipients?: string[];
-  maxTxValueUsd?: number;
-  dailyTokenSpendUsd?: number;
-  requireApprovalForSwaps?: boolean;
-  requireApprovalForTransfers?: boolean;
+  // v0.2 — wallet mandate. toMandateSnapshot always populates these with
+  // safe defaults so consumers don't need to null-check; legacy snapshots
+  // (e.g. raw JSON from old receipts) may have them undefined, hence the
+  // defensive checks in the policy engine.
+  agentWallet: string | null;
+  ownerWallet: string | null;
+  allowedChains: string[];
+  allowedTokens: string[];
+  allowedContracts: string[];
+  blockedContracts: string[];
+  blockedRecipients: string[];
+  maxTxValueUsd: number;
+  dailyTokenSpendUsd: number;
+  requireApprovalForSwaps: boolean;
+  requireApprovalForTransfers: boolean;
 }
 
 export interface PolicyDecision {
@@ -47,6 +49,15 @@ export interface PolicyDecision {
 
 function domainOf(target: string): string | null {
   if (!target) return null;
+  // v0.2 — 0x-addresses, chain names, and bare tx hashes aren't web hosts.
+  // Treat them as non-domains so allowedDomains/blockedDomains don't fire
+  // on crypto targets.
+  if (/^0x[0-9a-fA-F]{40}$/.test(target)) return null;
+  if (/^0x[0-9a-fA-F]{64}$/.test(target)) return null;
+  if (/^[a-z]+(-[a-z0-9]+)*$/i.test(target) && !target.includes(".")) {
+    // chain slug ("base", "base-sepolia", "ethereum") — no dot ⇒ not a host
+    return null;
+  }
   try {
     if (/^https?:\/\//i.test(target)) return new URL(target).hostname.toLowerCase();
   } catch {

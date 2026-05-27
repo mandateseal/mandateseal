@@ -16,6 +16,18 @@ export interface MandateData {
   approvalRequiredActions: string[];
   allowedDomains: string[];
   blockedDomains: string[];
+  // v0.2 — wallet mandate fields.
+  agentWallet: string | null;
+  ownerWallet: string | null;
+  allowedChains: string[];
+  allowedTokens: string[];
+  allowedContracts: string[];
+  blockedContracts: string[];
+  blockedRecipients: string[];
+  maxTxValueUsd: number;
+  dailyTokenSpendUsd: number;
+  requireApprovalForSwaps: boolean;
+  requireApprovalForTransfers: boolean;
 }
 
 export function MandateBuilder({
@@ -56,6 +68,18 @@ export function MandateBuilder({
           approvalRequiredActions: draft.approvalRequiredActions,
           allowedDomains: draft.allowedDomains,
           blockedDomains: draft.blockedDomains,
+          // v0.2 — wallet mandate. Empty strings become null on the server side.
+          agentWallet: draft.agentWallet?.trim() || null,
+          ownerWallet: draft.ownerWallet?.trim() || null,
+          allowedChains: draft.allowedChains,
+          allowedTokens: draft.allowedTokens,
+          allowedContracts: draft.allowedContracts,
+          blockedContracts: draft.blockedContracts,
+          blockedRecipients: draft.blockedRecipients,
+          maxTxValueUsd: draft.maxTxValueUsd,
+          dailyTokenSpendUsd: draft.dailyTokenSpendUsd,
+          requireApprovalForSwaps: draft.requireApprovalForSwaps,
+          requireApprovalForTransfers: draft.requireApprovalForTransfers,
         }),
       });
       const data = await res.json();
@@ -122,7 +146,7 @@ export function MandateBuilder({
           tone="allow"
           values={draft.allowedTools}
           onChange={(v) => update("allowedTools", v)}
-          placeholder="e.g. paid_api_call"
+          placeholder="e.g. wallet, dex, paid_api_call"
         />
         <TagListEditor
           label="blocked tools"
@@ -158,6 +182,100 @@ export function MandateBuilder({
           onChange={(v) => update("blockedDomains", v)}
           placeholder="e.g. unknown-wallet.site"
         />
+      </div>
+
+      <div className="dashed-rule my-6" />
+      <div className="flex items-center gap-2 mb-4">
+        <span className="label">WALLET MANDATE</span>
+        <span className="font-tech text-[10px] uppercase tracking-[0.22em] text-paperMuted">
+          v0.2 · onchain agents
+        </span>
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-4">
+        <Field label="agent wallet (0x…)">
+          <input
+            className="field-input font-tech"
+            placeholder="0x…"
+            value={draft.agentWallet ?? ""}
+            onChange={(e) => update("agentWallet", e.target.value)}
+          />
+        </Field>
+        <Field label="owner wallet (0x…)">
+          <input
+            className="field-input font-tech"
+            placeholder="0x…"
+            value={draft.ownerWallet ?? ""}
+            onChange={(e) => update("ownerWallet", e.target.value)}
+          />
+        </Field>
+        <NumField
+          label="max tx value (usd)"
+          value={draft.maxTxValueUsd}
+          onChange={(v) => update("maxTxValueUsd", v)}
+        />
+        <NumField
+          label="daily token spend (usd)"
+          value={draft.dailyTokenSpendUsd}
+          onChange={(v) => update("dailyTokenSpendUsd", v)}
+        />
+      </div>
+
+      <div className="mt-5 grid md:grid-cols-2 gap-5">
+        <TagListEditor
+          label="allowed chains"
+          tone="allow"
+          values={draft.allowedChains}
+          onChange={(v) => update("allowedChains", v)}
+          placeholder="e.g. base, base-sepolia"
+        />
+        <TagListEditor
+          label="allowed tokens"
+          tone="allow"
+          values={draft.allowedTokens}
+          onChange={(v) => update("allowedTokens", v)}
+          placeholder="e.g. USDC, ETH"
+        />
+        <TagListEditor
+          label="allowed contracts"
+          tone="allow"
+          values={draft.allowedContracts}
+          onChange={(v) => update("allowedContracts", v)}
+          placeholder="0x… DEX, governor, etc."
+        />
+        <TagListEditor
+          label="blocked contracts"
+          tone="block"
+          values={draft.blockedContracts}
+          onChange={(v) => update("blockedContracts", v)}
+          placeholder="0x… known-bad contracts"
+        />
+        <TagListEditor
+          label="blocked recipients"
+          tone="block"
+          values={draft.blockedRecipients}
+          onChange={(v) => update("blockedRecipients", v)}
+          placeholder="0x… sanctioned / phished addrs"
+        />
+      </div>
+
+      <div className="mt-5 grid sm:grid-cols-2 gap-4">
+        <label className="flex items-center gap-2 font-tech text-[11px] uppercase tracking-[0.18em] text-paperMuted">
+          <input
+            type="checkbox"
+            checked={draft.requireApprovalForSwaps}
+            onChange={(e) => update("requireApprovalForSwaps", e.target.checked)}
+          />
+          require approval for swaps
+        </label>
+        <label className="flex items-center gap-2 font-tech text-[11px] uppercase tracking-[0.18em] text-paperMuted">
+          <input
+            type="checkbox"
+            checked={draft.requireApprovalForTransfers}
+            onChange={(e) => update("requireApprovalForTransfers", e.target.checked)}
+          />
+          require approval for transfers
+        </label>
       </div>
 
       <div className="dashed-rule my-5" />

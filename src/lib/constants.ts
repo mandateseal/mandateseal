@@ -4,6 +4,15 @@ export const DEFAULT_AGENT = {
   role: "Autonomous Research Agent",
 };
 
+// Demo addresses used by the seed + simulator presets. Lowercase ASCII hex
+// so policy engine's case-insensitive listed() comparison stays predictable.
+export const DEMO_AGENT_WALLET = "0xa4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4";
+export const DEMO_OWNER_WALLET = "0xfbfbfbfbfbfbfbfbfbfbfbfbfbfbfbfbfbfbfbfb";
+export const DEMO_DEX_CONTRACT = "0x1111111111111111111111111111111111111111";
+export const DEMO_GOVERNOR_CONTRACT = "0x3333333333333333333333333333333333333333";
+export const DEMO_BLOCKED_CONTRACT = "0xbabababababababababababababababababababa";
+export const DEMO_BLOCKED_RECIPIENT = "0xdedededededededededededededededededededede";
+
 export const DEFAULT_MANDATE = {
   id: "mandate_research_budget_v1",
   name: "research-budget-v1",
@@ -11,29 +20,39 @@ export const DEFAULT_MANDATE = {
   dailyBudgetUsd: 25,
   maxCostPerActionUsd: 2,
   approvalThresholdUsd: 5,
-  allowedTools: ["web_search", "paid_api_call", "file_reader", "email_draft"],
-  blockedTools: ["wallet_transfer", "shell_exec", "private_key_reader"],
-  blockedActions: [
-    "transfer_usdc",
-    "delete_files",
-    "execute_shell_command",
-    "access_private_keys",
+  // v0.2 — added wallet/dex/bridge/governor so the crypto simulator presets
+  // get past the allowedTools whitelist; legacy tools stay so non-crypto
+  // research actions still pass.
+  allowedTools: [
+    "web_search",
+    "paid_api_call",
+    "file_reader",
+    "email_draft",
+    "wallet",
+    "dex",
+    "bridge",
+    "governor",
   ],
+  blockedTools: ["shell_exec", "private_key_reader"],
+  // transfer_usdc removed: now controlled via wallet mandate rules
+  // (blockedRecipients, allowedTokens, maxTxValueUsd, requireApprovalForTransfers)
+  blockedActions: ["delete_files", "execute_shell_command", "access_private_keys"],
   approvalRequiredActions: ["send_email", "buy_dataset"],
   allowedDomains: ["api.openai.com", "github.com", "docs.coinbase.com"],
   blockedDomains: ["unknown-wallet.site", "private-keys.local"],
-  // v0.2 — wallet mandate defaults. Empty/false so the existing research
-  // agent stays non-crypto unless an operator explicitly opts in.
-  agentWallet: null as string | null,
-  ownerWallet: null as string | null,
-  allowedChains: [] as string[],
-  allowedTokens: [] as string[],
-  allowedContracts: [] as string[],
-  blockedContracts: [] as string[],
-  blockedRecipients: [] as string[],
-  maxTxValueUsd: 0,
-  dailyTokenSpendUsd: 0,
-  requireApprovalForSwaps: false,
+  // v0.2 — wallet mandate defaults. Tuned so the dashboard simulator and
+  // /playground demos produce the full APPROVED / BLOCKED / NEEDS_APPROVAL
+  // distribution out of the box.
+  agentWallet: DEMO_AGENT_WALLET as string | null,
+  ownerWallet: DEMO_OWNER_WALLET as string | null,
+  allowedChains: ["base", "base-sepolia"] as string[],
+  allowedTokens: ["USDC", "ETH"] as string[],
+  allowedContracts: [DEMO_DEX_CONTRACT, DEMO_GOVERNOR_CONTRACT] as string[],
+  blockedContracts: [DEMO_BLOCKED_CONTRACT] as string[],
+  blockedRecipients: [DEMO_BLOCKED_RECIPIENT] as string[],
+  maxTxValueUsd: 200,
+  dailyTokenSpendUsd: 500,
+  requireApprovalForSwaps: true,
   requireApprovalForTransfers: false,
 };
 

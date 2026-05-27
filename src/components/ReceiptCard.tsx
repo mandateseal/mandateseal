@@ -64,6 +64,33 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
         <Cell k="decision" v={receipt.decision} />
       </div>
 
+      {hasCryptoFields(receipt) && (
+        <>
+          <div className="dashed-rule my-5" />
+          <div className="flex items-center gap-2 mb-3">
+            <span className="label">CRYPTO ACTION</span>
+            {receipt.chain && (
+              <span className="font-tech text-[10px] uppercase tracking-[0.22em] text-paperMuted">
+                · {receipt.chain}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-y-2 gap-x-4 font-tech text-[12px] text-paper">
+            {receipt.chain && <Cell k="chain" v={receipt.chain} />}
+            {receipt.token && <Cell k="token" v={receipt.token} />}
+            {receipt.amount && <Cell k="amount" v={receipt.amount} />}
+            {(receipt.txValueUsd ?? null) !== null && (
+              <Cell k="tx value (usd)" v={`$${(receipt.txValueUsd as number).toFixed(2)}`} />
+            )}
+            {receipt.wallet && <Cell k="wallet" v={receipt.wallet} />}
+            {receipt.recipient && <Cell k="recipient" v={receipt.recipient} />}
+            {receipt.contractAddress && <Cell k="contract" v={receipt.contractAddress} />}
+            {receipt.functionSelector && <Cell k="fn selector" v={receipt.functionSelector} />}
+            {receipt.txHash && <Cell k="tx hash" v={receipt.txHash} />}
+          </div>
+        </>
+      )}
+
       <div className="dashed-rule my-5" />
       <div className="space-y-3">
         <HashText label="policyHash" value={receipt.policyHash} />
@@ -115,6 +142,20 @@ function Cell({ k, v }: { k: string; v: string }) {
       <div className="label">{k}</div>
       <div className="truncate">{v}</div>
     </div>
+  );
+}
+
+function hasCryptoFields(r: ReceiptView): boolean {
+  return Boolean(
+    r.chain ||
+      r.wallet ||
+      r.token ||
+      r.amount ||
+      (r.txValueUsd ?? null) !== null ||
+      r.recipient ||
+      r.contractAddress ||
+      r.functionSelector ||
+      r.txHash,
   );
 }
 

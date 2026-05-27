@@ -1,25 +1,25 @@
 # MandateSeal
 
 > **Approve before. Prove after.**
-> A trust layer for autonomous AI agents — pre-action mandate enforcement and post-action signed receipts.
+> The permission and proof layer for autonomous crypto agents — wallet mandates before every onchain action, signed receipts after, merkle batches anchored on Base.
 
 ```
-AGENT WANTS TO ACT
+AGENT WANTS TO ACT  (transfer, swap, contract_call, …)
         │
         ▼
    POST /api/check  ──►  MandateSeal
         │                  │
-        │                  ├─ run 10-rule policy engine
+        │                  ├─ run 20-rule policy engine (wallet mandate + cost)
         │                  ├─ produce decision  (APPROVED · BLOCKED · NEEDS_APPROVAL)
         │                  └─ sign receipt      (canonical JSON + Ed25519)
         │
         ▼
-  if APPROVED → agent runs the action
+  if APPROVED → agent signs + broadcasts tx
   if BLOCKED  → agent stops
-  if NEEDS_APPROVAL → human queue (v0.2)
+  if NEEDS_APPROVAL → human queue resolves in dashboard
         │
         ▼
-   POST /api/verify  ──►  anyone, any time
+   batch root broadcast to Base → /api/verify (anyone, any time)
         │
         ▼
   { valid: true | false, reasons: [...] }
@@ -34,7 +34,7 @@ AGENT WANTS TO ACT
 - [Core concepts](#core-concepts)
 - [End-to-end workflow](#end-to-end-workflow)
 - [Quickstart](#quickstart)
-- [The policy engine — 10 rules in order](#the-policy-engine--10-rules-in-order)
+- [The policy engine — 20 rules in order](#the-policy-engine--10-rules-in-order)
 - [The signed receipt](#the-signed-receipt)
 - [API reference](#api-reference)
 - [TypeScript SDK](#typescript-sdk)
@@ -72,7 +72,7 @@ That's not accountability. That's a story you tell yourself between incidents.
 
 | Half | When | Mechanism | Output |
 |---|---|---|---|
-| **Approve before** | Pre-action | Bearer-authed `POST /api/check`. Runs a 10-rule policy engine against the agent's active mandate. | `decision`: `APPROVED` · `BLOCKED` · `NEEDS_APPROVAL` |
+| **Approve before** | Pre-action | Bearer-authed `POST /api/check`. Runs a 20-rule policy engine against the agent's active mandate. | `decision`: `APPROVED` · `BLOCKED` · `NEEDS_APPROVAL` |
 | **Prove after** | After the decision | Same call seals a **preflight receipt**: canonical JSON of mandate + action + decision, SHA-256 hashed, Ed25519 signed. The receipt proves what was decided. | Tamper-evident `receipt` anyone can later verify |
 
 A single API call covers both halves. The agent doesn't need to call MandateSeal twice.
@@ -176,7 +176,7 @@ The sealed proof of decision. Persisted on the server, returned to the caller, v
 │      body: { agentId, actionType, tool, target, costUsd }                │
 │         │                                                                │
 │         │  policy engine runs                                            │
-│         │  10 rules in order, short-circuit on first match               │
+│         │  20 rules in order, short-circuit on first match               │
 │         ▼                                                                │
 │      response: { decision, reason, matchedRule, riskLevel, receipt }     │
 │                                                                          │
@@ -265,7 +265,7 @@ Expected output: `decision: "APPROVED"`, `matchedRule: "default.allow"`, plus a 
 
 ---
 
-## The policy engine — 10 rules in order
+## The policy engine — 20 rules in order
 
 The engine in [`src/lib/policy.ts`](src/lib/policy.ts) evaluates these in exactly this order and **short-circuits on first match**. Order matters — `blockedTools` fires before `blockedActions`, and cost rules fire before approval-required-actions.
 
@@ -794,7 +794,7 @@ mandateseal/
 │   │   ├── DashboardClient.tsx · VerifyClient.tsx
 │   ├── lib/
 │   │   ├── db.ts              # Prisma singleton
-│   │   ├── policy.ts          # 10-rule engine
+│   │   ├── policy.ts          # 20-rule engine
 │   │   ├── crypto.ts          # Ed25519 sign/verify, sha256, key loader
 │   │   ├── canonical.ts       # deterministic JSON
 │   │   ├── schemas.ts         # Zod validators
@@ -832,7 +832,7 @@ mandateseal/
 |---|---|---|
 | Framework | Next.js 14 App Router | Single runtime for UI + API, server components, file-based routing |
 | Language | TypeScript (strict) | Type-safe wire contracts edge to edge |
-| DB | SQLite via Prisma (dev) → Postgres (prod) | Zero-config locally; switch schema provider + `DATABASE_URL` for production |
+| DB | Postgres via Prisma (Supabase pooler in prod) | Pooler URL for runtime, direct URL for migrations |
 | Schema validation | Zod | One source of truth for body shapes + API + SDK |
 | Crypto | Node `crypto` (Ed25519 sign/verify, SHA-256) | Asymmetric receipts since v0.1 GA; HMAC-SHA256 only for admin session cookies |
 | Styling | Tailwind + hand-tuned `globals.css` | Editorial, brutalist palette — off-black + warm paper |
@@ -856,7 +856,7 @@ These are **deliberate omissions** in v0.1 — see [docs/ROADMAP.md](docs/ROADMA
 - ❌ **Webhooks / push notifications** — poll only (v0.8)
 - ❌ **Multi-tenant / org isolation** — single global namespace (v0.3)
 - ✅ **Onchain anchoring** — Base / Base Sepolia broadcast via signer wallet (v0.9.1), no contract
-- 🟡 **Test suite** — 86 Vitest unit tests covering canonical JSON, 10-rule policy engine, Ed25519 sign/verify + tamper, receipt filter, daily-budget enforcement, tool schemas, webhook schemas, merkle tree (build/proof/tamper); API route integration tests deferred
+- 🟡 **Test suite** — 86 Vitest unit tests covering canonical JSON, 20-rule policy engine, Ed25519 sign/verify + tamper, receipt filter, daily-budget enforcement, tool schemas, webhook schemas, merkle tree (build/proof/tamper); API route integration tests deferred
 
 ---
 
@@ -920,7 +920,8 @@ Local dev (`npm run dev`) and local production (`npm run start`) both work out o
 
 ### 1 · Set env vars at the platform (not `.env`)
 ```bash
-DATABASE_URL=postgresql://...                           # not SQLite for multi-instance
+DATABASE_URL=postgresql://...                           # Postgres pooler URL (Supabase, Neon, etc.)
+DIRECT_URL=postgresql://...                             # direct URL for prisma migrations
 MANDATESEAL_PRIVATE_KEY_B64=<base64 of PEM>             # required — never auto-generate in prod
 MANDATESEAL_PUBLIC_KEY_B64=<base64 of PEM>              # required — exposed at /api/key.pub
 MANDATESEAL_ADMIN_ADDRESSES=0xAbc...,0xDef...           # required — or dashboard is open

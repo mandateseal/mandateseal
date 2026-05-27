@@ -36,6 +36,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (parsed.data.maxCostPerActionUsd !== undefined) data.maxCostPerActionUsd = parsed.data.maxCostPerActionUsd;
   if (parsed.data.approvalThresholdUsd !== undefined) data.approvalThresholdUsd = parsed.data.approvalThresholdUsd;
   Object.assign(data, serializeListsForDb(parsed.data));
+  // v0.2 — wallet mandate scalar fields. Treat `undefined` as "don't touch"
+  // and `null`/empty-string on the wallet fields as "clear it".
+  if (parsed.data.agentWallet !== undefined) data.agentWallet = parsed.data.agentWallet || null;
+  if (parsed.data.ownerWallet !== undefined) data.ownerWallet = parsed.data.ownerWallet || null;
+  if (parsed.data.maxTxValueUsd !== undefined) data.maxTxValueUsd = parsed.data.maxTxValueUsd;
+  if (parsed.data.dailyTokenSpendUsd !== undefined) data.dailyTokenSpendUsd = parsed.data.dailyTokenSpendUsd;
+  if (parsed.data.requireApprovalForSwaps !== undefined) data.requireApprovalForSwaps = parsed.data.requireApprovalForSwaps;
+  if (parsed.data.requireApprovalForTransfers !== undefined) data.requireApprovalForTransfers = parsed.data.requireApprovalForTransfers;
 
   const m = await prisma.mandate.update({ where: { id: params.id }, data });
   return NextResponse.json({ mandate: publicMandate(m) });

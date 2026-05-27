@@ -44,6 +44,14 @@ export async function POST(req: Request) {
       maxCostPerActionUsd: parsed.data.maxCostPerActionUsd,
       approvalThresholdUsd: parsed.data.approvalThresholdUsd,
       ...serializeListsForDb(parsed.data),
+      // v0.2 — wallet mandate scalar fields. Zod defaults handle the
+      // numeric/boolean cases; nullable wallet fields stay null when absent.
+      agentWallet: parsed.data.agentWallet ?? null,
+      ownerWallet: parsed.data.ownerWallet ?? null,
+      maxTxValueUsd: parsed.data.maxTxValueUsd,
+      dailyTokenSpendUsd: parsed.data.dailyTokenSpendUsd,
+      requireApprovalForSwaps: parsed.data.requireApprovalForSwaps,
+      requireApprovalForTransfers: parsed.data.requireApprovalForTransfers,
     },
   });
 

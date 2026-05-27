@@ -28,6 +28,16 @@ export function ReceiptTable({ rows }: { rows: ReceiptView[] }) {
     }
   }
 
+  // Compact inline meta for crypto actions: "base · USDC", "base · ETH 0x38ed1739", etc.
+  // Returns null when the receipt has no crypto fields → row stays plain.
+  function cryptoInline(r: ReceiptView): string | null {
+    const parts: string[] = [];
+    if (r.chain) parts.push(r.chain);
+    if (r.token) parts.push(r.token);
+    else if (r.functionSelector) parts.push(r.functionSelector);
+    return parts.length > 0 ? parts.join(" · ") : null;
+  }
+
   if (rows.length === 0) {
     return (
       <div className="paper-panel p-6 text-center font-tech text-[11px] uppercase tracking-[0.18em] text-paperMuted">
@@ -51,25 +61,35 @@ export function ReceiptTable({ rows }: { rows: ReceiptView[] }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} className="border-t border-line text-paper">
-              <td className="px-4 py-3 whitespace-nowrap">{fmtTimestamp(r.timestamp)}</td>
-              <td className="px-4 py-3">{r.agentId}</td>
-              <td className="px-4 py-3">{r.actionType}</td>
-              <td className={`px-4 py-3 ${decisionColor[r.decision]}`}>{r.decision}</td>
-              <td className="px-4 py-3">{r.riskLevel}</td>
-              <td className="px-4 py-3"><code className="text-paperMuted">{r.receiptHash.slice(0, 14)}…</code></td>
-              <td className="px-4 py-3">
-                <button className="command-button" onClick={() => verify(r.id)} disabled={verifying === r.id}>
-                  {verifying === r.id
-                    ? "…"
-                    : r.id in verified
-                      ? (verified[r.id] ? "✓ valid" : "✗ invalid")
-                      : "Verify"}
-                </button>
-              </td>
-            </tr>
-          ))}
+          {rows.map((r) => {
+            const cryptoMeta = cryptoInline(r);
+            return (
+              <tr key={r.id} className="border-t border-line text-paper">
+                <td className="px-4 py-3 whitespace-nowrap">{fmtTimestamp(r.timestamp)}</td>
+                <td className="px-4 py-3">{r.agentId}</td>
+                <td className="px-4 py-3">
+                  <div>{r.actionType}</div>
+                  {cryptoMeta && (
+                    <div className="text-[10px] text-paperMuted mt-0.5 truncate max-w-[180px]">
+                      {cryptoMeta}
+                    </div>
+                  )}
+                </td>
+                <td className={`px-4 py-3 ${decisionColor[r.decision]}`}>{r.decision}</td>
+                <td className="px-4 py-3">{r.riskLevel}</td>
+                <td className="px-4 py-3"><code className="text-paperMuted">{r.receiptHash.slice(0, 14)}…</code></td>
+                <td className="px-4 py-3">
+                  <button className="command-button" onClick={() => verify(r.id)} disabled={verifying === r.id}>
+                    {verifying === r.id
+                      ? "…"
+                      : r.id in verified
+                        ? (verified[r.id] ? "✓ valid" : "✗ invalid")
+                        : "Verify"}
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
