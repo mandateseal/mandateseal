@@ -1,19 +1,20 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAccount, useSignMessage } from "wagmi";
+import { useAccount, useChainId, useSignMessage } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { SiweMessage } from "siwe";
 
 export function LoginForm({ next }: { next: string }) {
   const router = useRouter();
-  const { address, isConnected, chain } = useAccount();
+  const { address, isConnected } = useAccount();
+  const chainId = useChainId();
   const { signMessageAsync } = useSignMessage();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function signIn() {
-    if (!address || !chain) return;
+    if (!address) return;
     setBusy(true);
     setError(null);
     try {
@@ -27,7 +28,7 @@ export function LoginForm({ next }: { next: string }) {
         statement: "Sign in to MandateSeal admin console.",
         uri: window.location.origin,
         version: "1",
-        chainId: chain.id,
+        chainId,
         nonce,
       }).prepareMessage();
 

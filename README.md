@@ -470,7 +470,8 @@ When `MANDATESEAL_ADMIN_ADDRESSES` is set, the dashboard pages and admin API rou
 
 | Method | Path | Auth | Body | Returns |
 |---|---|---|---|---|
-| `POST` | `/api/auth/login` | none | `{ password }` | `{ ok: true }` + `mandateseal_session` cookie |
+| `GET`  | `/api/auth/nonce`  | none   | — | `{ nonce }` + `mandateseal_siwe_nonce` cookie |
+| `POST` | `/api/auth/siwe`   | nonce  | `{ message, signature }` | `{ ok: true, address }` + `mandateseal_session` cookie |
 | `POST` | `/api/auth/logout` | cookie | — | `{ ok: true }` |
 
 Unauthenticated requests to `/dashboard`, `/agents`, `/mandates`, `/receipts`, `/approvals` 307-redirect to `/login`. Unauthenticated requests to mutating admin API routes (and admin GET listings) return 401. `/api/check` is bearer-only and not affected. `/api/verify`, `/api/key.pub`, and `/api/approvals/:id/wait` stay public so SDK callers and external verifiers don't need session.
