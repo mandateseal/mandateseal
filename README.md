@@ -77,7 +77,7 @@ That's not accountability. That's a story you tell yourself between incidents.
 
 A single API call covers both halves. The agent doesn't need to call MandateSeal twice.
 
-> **Lifecycle note.** v0.1–v0.9 seal only the *preflight* receipt — proof that the policy engine ran and produced a decision. The agent (or the proxy at `/api/proxy/:tool`) executes downstream and **execution-outcome receipts are not yet sealed**. v0.7.1 will close this loop with a second sealed receipt covering upstream status, duration, and bytes returned.
+> **Lifecycle note.** Receipts seal the *preflight* decision — proof that the policy engine ran and produced a verdict. The agent (or the proxy at `/api/proxy/:tool`) executes downstream and **execution-outcome receipts are not yet sealed**. The v0.8 Tool / MCP Gateway milestone closes this loop with a second sealed receipt covering upstream status, duration, and bytes returned.
 
 ---
 
@@ -96,7 +96,7 @@ A declarative policy contract bound to one agent. Every field is enforced at dec
 | Field | Type | Meaning |
 |---|---|---|
 | `enabled` | bool | If `false`, all actions APPROVED (mandate off) |
-| `dailyBudgetUsd` | float | Daily spend ceiling (enforcement: v0.6) |
+| `dailyBudgetUsd` | float | Daily spend ceiling — enforced via the budget rule at policy time |
 | `maxCostPerActionUsd` | float | Per-action cost ceiling |
 | `approvalThresholdUsd` | float | Cost above this → NEEDS_APPROVAL |
 | `allowedTools` | string[] | If non-empty, only these tools allowed |
@@ -183,7 +183,7 @@ The sealed proof of decision. Persisted on the server, returned to the caller, v
 │   5. AGENT DECIDES                                                       │
 │      ├─ APPROVED        → run the action                                 │
 │      ├─ BLOCKED         → abort                                          │
-│      └─ NEEDS_APPROVAL  → wait for human (v0.2 queue)                    │
+│      └─ NEEDS_APPROVAL  → wait for human reviewer in /approvals          │
 │                                                                          │
 │   6. VERIFICATION (now or later, by anyone)                              │
 │      POST /api/verify    body: { id } OR full receipt JSON               │
@@ -383,7 +383,7 @@ Returns `401` on missing/invalid bearer, `403` if `agentId` in body ≠ authenti
 | `POST` | `/api/verify` | none | `{ id }` or full receipt JSON | `{ valid, reasons, reEvaluation, receipt? }` |
 | `GET` | `/api/key.pub` | none | — | Ed25519 public key (PEM, `application/x-pem-file`) |
 
-### Audit (v0.4)
+### Audit & receipt history
 
 | Method | Path | Auth | Body | Returns |
 |---|---|---|---|---|
@@ -391,7 +391,7 @@ Returns `401` on missing/invalid bearer, `403` if `agentId` in body ≠ authenti
 | `GET` | `/api/audit/stats?from=&to=` | admin | — | `{ total, totalCostUsd, byDecision, topTools, topActions, topMatchedRules, perAgent, perMandate }` |
 | `GET` | `/api/audit/spend` | admin | — | `{ agents: [{ agentId, dailyBudgetUsd, todayUsd, weekUsd, monthUsd, totalUsd, todayPctOfBudget }] }` |
 
-### Tools & Proxy (v0.7)
+### Tools & Proxy (v0.8 — Tool / MCP Gateway)
 
 A tool is an upstream HTTP endpoint MandateSeal can proxy to. Agents call `/api/proxy/<name>` with a Bearer key; MandateSeal runs the policy engine (using the tool name as `tool`), seals a receipt, then forwards to the upstream if APPROVED.
 
@@ -406,7 +406,7 @@ A tool is an upstream HTTP endpoint MandateSeal can proxy to. Agents call `/api/
 
 The proxy strips `Authorization`, `Cookie`, `Host`, `Content-Length` before forwarding. Adds `User-Agent: MandateSeal-Proxy/0.7 (agent=… tool=…)` and the receipt id. 25 s upstream timeout → 504.
 
-### Webhooks (v0.8)
+### Webhooks (part of v0.8 — Tool / MCP Gateway)
 
 Subscribe URLs to push notifications. Every matching event fans out a signed JSON envelope with retries. Receivers verify `X-MandateSeal-Signature` (Ed25519, base64) against `/api/key.pub`.
 
@@ -430,11 +430,11 @@ Delivery envelope (`POST` body):
 }
 ```
 
-### Onchain Anchors (v0.9 + v0.9.1)
+### Onchain Anchors (v0.5)
 
 Receipts get bundled into merkle batches. Every batch's `root` is linked to the previous batch's via `prevRoot`, forming a tamper-evident hash chain. Each anchored receipt can be served a sibling-path proof; anyone (no DB needed) can recompute leaf → path → root and confirm membership.
 
-**v0.9.1** broadcasts each new root to a public chain (Base / Base Sepolia) as the calldata of a 0-value self-tx from a server-side signer wallet. No smart contract — the tx itself is the immutable record. To verify, anyone fetches the tx from a public RPC, slices the input bytes, and compares to the batch row. Trust ends at the chain, not at MandateSeal.
+**Onchain broadcast** sends each new root to a public chain (Base / Base Sepolia) as the calldata of a 0-value self-tx from a server-side signer wallet. No smart contract — the tx itself is the immutable record. To verify, anyone fetches the tx from a public RPC, slices the input bytes, and compares to the batch row. Trust ends at the chain, not at MandateSeal.
 
 Calldata format (72 bytes):
 
@@ -463,7 +463,7 @@ Merkle construction (compatibility-first so any external verifier can reproduce)
 - odd siblings duplicated
 - empty tree → `"0".repeat(64)`
 
-### Approvals (v0.2)
+### Approvals (human-in-the-loop)
 
 Every `NEEDS_APPROVAL` decision automatically opens an `Approval` workflow record. Default TTL 30 minutes; overdue approvals are lazily marked `expired` on read.
 
@@ -604,7 +604,7 @@ try {
 
 ---
 
-## CLI (v0.3)
+## CLI (part of v0.7 — Developer SDK)
 
 A small zero-dep Node CLI ships with the package at [`bin/mandateseal.mjs`](bin/mandateseal.mjs). Once published it runs as `npx mandateseal …`; locally use `npm run cli …`.
 
@@ -713,12 +713,12 @@ The 6 preset actions in the simulator are designed to exercise every distinct br
 
 | Scenario | How MandateSeal helps |
 |---|---|
-| **AI coding agent with a $10/day OpenAI budget** | `maxCostPerActionUsd: 0.50`, daily budget enforced (v0.6). Every paid completion is sealed. Finance gets a CSV monthly. |
-| **Autonomous research agent calling third-party APIs** | `allowedDomains` whitelist. Agent attempting `unknown-api.com` is blocked at the wire, not at the model layer. |
-| **Customer-support bot that can send emails** | `send_email` in `approvalRequiredActions`. Bot drafts; human clicks Approve in dashboard (v0.2 queue). |
-| **Treasury agent that signs transactions** | `wallet_transfer` blocked by default. Specific signed mandate change required to unblock — itself logged as a receipt. |
-| **Multi-tenant SaaS adding "AI mode"** | One agent per tenant; per-tenant mandate. Customers see exactly what their AI did via per-receipt links (v0.5 Public Explorer). |
-| **Compliance audit ("what did the AI do on 2026-05-27?")** | Filter receipt archive by date + agent + decision. Every BLOCKED is preserved with the rule that fired (v0.4). |
+| **Autonomous trading agent on Base** | `allowedChains: ["base"]`, `allowedTokens: ["USDC","ETH"]`, `allowedContracts` whitelist for the agent's DEX. Off-route swaps are blocked at the policy layer before the agent ever signs a tx. |
+| **DAO treasury agent** | Owner wallet allowlisted, `maxTxValueUsd` cap, `requireApprovalForTransfers: true`. Every outbound transfer pauses for a human signer; the resulting receipt is the audit trail. |
+| **Onchain research agent** | `allowedDomains` for off-chain data, plus wallet mandate for any onchain side-effect. Both surfaces share the same receipt schema. |
+| **Drainer-style attack defense** | `blockedRecipients` + `blockedContracts` against known-bad addresses; `infinite approval` → BLOCKED outright. Each blocked attempt is sealed so an auditor can reproduce. |
+| **Public proof for shared agents** | `/r/[id]` is a redacted-but-verifiable receipt page. Once the batch is anchored, anyone can confirm the agent's decision against the Base tx — no MandateSeal contact needed. |
+| **Compliance / incident review** | Filter receipts by chain, token, recipient, contract, decision, or date. Every BLOCKED is preserved with the rule that fired and the merkle proof of inclusion. |
 
 ---
 
@@ -754,26 +754,26 @@ mandateseal/
 │   │   │   ├── audit/integrity/route.ts              # GET — re-verify all receipts
 │   │   │   ├── audit/stats/route.ts                  # GET — decision / rule / agent aggregates
 │   │   │   ├── audit/spend/route.ts                  # GET — per-agent daily/weekly/monthly spend
-│   │   │   ├── tools/route.ts                        # v0.7 — GET, POST
-│   │   │   ├── tools/[id]/route.ts                   # v0.7 — GET, PATCH, DELETE
-│   │   │   ├── proxy/[tool]/route.ts                 # v0.7 — bearer-authed forwarder, seals receipt
+│   │   │   ├── tools/route.ts                        # v0.8 — GET, POST
+│   │   │   ├── tools/[id]/route.ts                   # v0.8 — GET, PATCH, DELETE
+│   │   │   ├── proxy/[tool]/route.ts                 # v0.8 — bearer-authed forwarder, seals receipt
 │   │   │   ├── webhooks/route.ts                     # v0.8 — GET, POST
 │   │   │   ├── webhooks/[id]/route.ts                # v0.8 — GET, PATCH, DELETE
 │   │   │   ├── webhooks/[id]/deliveries/route.ts     # v0.8 — recent delivery log
-│   │   │   ├── anchor/route.ts                       # v0.9 — GET (list batches), POST (seal)
-│   │   │   ├── anchor/proof/route.ts                 # v0.9 — GET — sibling-path proof
-│   │   │   ├── anchor/verify/route.ts                # v0.9 — POST — standalone verify (public)
-│   │   │   └── anchor/audit/route.ts                 # v0.9 — GET — recompute every root + chain audit
+│   │   │   ├── anchor/route.ts                       # v0.5 — GET (list batches), POST (seal)
+│   │   │   ├── anchor/proof/route.ts                 # v0.5 — GET — sibling-path proof
+│   │   │   ├── anchor/verify/route.ts                # v0.5 — POST — standalone verify (public)
+│   │   │   └── anchor/audit/route.ts                 # v0.5 — GET — recompute every root + chain audit
 │   │   ├── dashboard/page.tsx
 │   │   ├── agents/page.tsx
 │   │   ├── mandates/page.tsx
 │   │   ├── receipts/page.tsx
 │   │   ├── approvals/page.tsx
 │   │   ├── audit/page.tsx                             # integrity + analytics
-│   │   ├── spend/page.tsx                             # v0.6 — budget burn
-│   │   ├── tools/page.tsx                             # v0.7 — tool registry UI
+│   │   ├── spend/page.tsx                             # spend ledger — daily-budget burn per agent
+│   │   ├── tools/page.tsx                             # v0.8 — tool registry UI
 │   │   ├── webhooks/page.tsx                          # v0.8 — webhook subscriptions + delivery log
-│   │   ├── anchor/page.tsx                            # v0.9 — merkle batch sealer + chain audit
+│   │   ├── anchor/page.tsx                            # v0.5 — merkle batch sealer + chain audit
 │   │   ├── verify/page.tsx
 │   │   ├── docs/page.tsx
 │   │   ├── login/page.tsx
@@ -804,11 +804,11 @@ mandateseal/
 │   │   ├── receipt-filter.ts  # Zod filter parse + Prisma where translation
 │   │   ├── approval.ts        # workflow + TTL + decideApproval helper
 │   │   ├── audit.ts           # computeAuditStats (groupBy aggregates)
-│   │   ├── spend.ts           # v0.6 — startOfTodayUtc + enforceDailyBudget + listAgentSpend
-│   │   ├── tool.ts            # v0.7 — Zod schemas + publicTool serializer
+│   │   ├── spend.ts           # spend ledger — startOfTodayUtc + enforceDailyBudget + listAgentSpend
+│   │   ├── tool.ts            # v0.8 — Zod schemas + publicTool serializer
 │   │   ├── webhook.ts         # v0.8 — Webhook + Delivery schemas + emit() dispatcher (Ed25519, retry/backoff)
-│   │   ├── merkle.ts          # v0.9 — pure SHA-256 merkle: buildRoot, buildProof, verifyProof
-│   │   ├── anchor.ts          # v0.9 — sealNextBatch + buildAnchorProof + auditAnchorChain
+│   │   ├── merkle.ts          # v0.5 — pure SHA-256 merkle: buildRoot, buildProof, verifyProof
+│   │   ├── anchor.ts          # v0.5 — sealNextBatch + buildAnchorProof + auditAnchorChain
 │   │   ├── mandate.ts         # snapshot + serialize helpers
 │   │   ├── serialize.ts       # publicAgent / publicMandate / publicReceipt
 │   │   ├── constants.ts       # default agent + mandate
@@ -818,7 +818,7 @@ mandateseal/
 │       └── index.ts           # barrel re-exports for clean imports
 ├── bin/
 │   └── mandateseal.mjs        # CLI: verify · tail · check · gen-keys · pubkey
-├── vitest.config.ts           # 86 unit tests across canonical, policy, crypto, filter, spend, tool, webhook, merkle
+├── vitest.config.ts           # 108 unit tests across canonical, policy, crypto, filter, spend, tool, webhook, merkle
 └── docs/
     ├── ROADMAP.md
     └── asset-prompts.md       # internal brand reference
@@ -846,17 +846,20 @@ mandateseal/
 
 These are **deliberate omissions** in v0.1 — see [docs/ROADMAP.md](docs/ROADMAP.md) for where each lands:
 
+- ✅ **Wallet mandates (v0.2)** — agent/owner wallet, allowed chains/tokens/contracts, blocked recipients/contracts, max tx value, daily token spend, approval flags for swaps & transfers
+- ✅ **Crypto policy rules** — blocked recipient, blocked contract, unsupported chain, unsupported token, tx-value cap, infinite-approval, unknown selector, swap/transfer approval gates
 - ✅ **Daily budget enforcement** — hard-cap rule: `sumApprovedToday + this.cost > dailyBudgetUsd` → BLOCKED; `/spend` shows per-agent burn
 - ✅ **Human approval queue** — `/approvals` page + `Approval` model + long-poll endpoint
 - ✅ **Asymmetric signatures** — Ed25519, public key at `/api/key.pub`
 - ✅ **Dashboard auth** — Sign-In with Ethereum (EIP-4361); env allowlist (`MANDATESEAL_ADMIN_ADDRESSES`); cookie session; middleware enforces
-- ❌ **API key revocation list** — rotation and delete exist, but no audit-trail of revoked keys yet
-- ❌ **Multi-user RBAC** — single shared address allowlist (v0.2)
-- ❌ **Rate-limiting on `/api/check`** — none (v0.7)
-- ❌ **Webhooks / push notifications** — poll only (v0.8)
-- ❌ **Multi-tenant / org isolation** — single global namespace (v0.3)
-- ✅ **Onchain anchoring** — Base / Base Sepolia broadcast via signer wallet (v0.9.1), no contract
-- 🟡 **Test suite** — 86 Vitest unit tests covering canonical JSON, 20-rule policy engine, Ed25519 sign/verify + tamper, receipt filter, daily-budget enforcement, tool schemas, webhook schemas, merkle tree (build/proof/tamper); API route integration tests deferred
+- ✅ **Onchain anchoring (v0.5)** — Base / Base Sepolia broadcast via signer wallet, no contract; calldata format `MS01 | batchIndex | prevRoot | root`
+- ✅ **Rate-limiting** — in-memory sliding window on `/api/check`, `/api/auth/*`, `/api/anchor`, `/api/verify`, `/api/proxy`; per-instance (swap for Upstash Redis for adversary-grade)
+- ❌ **Agent reputation (v0.6)** — wallet-keyed history → trust score not yet shipped
+- ❌ **MCP server adapter (v0.8)** — Tool gateway exists; MCP-native endpoint planned
+- ❌ **Execution-outcome receipt** — preflight is sealed; post-tool outcome receipt deferred to v0.8
+- ❌ **Multi-tenant / org isolation** — single global namespace (v1.0 Protocol Layer)
+- ❌ **API key revocation audit trail** — rotation and delete exist, no history of revoked keys
+- 🟡 **Test suite** — 108 Vitest unit tests covering canonical JSON, 20-rule policy engine (incl. 14 crypto rule tests), Ed25519 sign/verify + tamper, receipt filter, daily-budget enforcement, tool schemas, webhook schemas, merkle tree (build/proof/tamper); API route integration tests deferred
 
 ---
 
@@ -873,28 +876,15 @@ Status labels:
 
 | Version | Name | Status |
 |---|---|---|
-| **v0.1** | Agent Action Gateway | Implemented |
-| **v0.2** | Human Approval Queue | Implemented |
-| **v0.3** | Developer SDK And CLI | Implemented |
-| **v0.4** | Audit Log And Receipt History | Implemented |
-| **v0.5** | Public Receipt Explorer | Beta |
-| **v0.6** | Spend Ledger | Beta |
-| **v0.7** | Tool Gateway | Experimental |
-| **v0.8** | Webhooks | Experimental |
-| **v0.9** | Receipt Anchors | Beta |
-| **v1.0** | Production Hardening | Planned |
-
-### Maturity stages
-
-> **Stage 1 - Agent safety layer (v0.1-v0.4)**: mandates, preflight checks, signed receipts, approval queue, SDK, CLI, audit log.
->
-> **Stage 2 - Agent operations layer (v0.5-v0.6)**: public receipt explorer, receipt history, verification, exports, and spend control.
->
-> **Stage 3 - Developer infrastructure (v0.7-v0.8)**: tool gateway between agents and APIs, webhooks for downstream systems, and future framework integrations.
->
-> **Stage 4 - Public proof layer (v0.9)**: public receipt proof, merkle anchors, and onchain verification preparation.
->
-> **Stage 5 - Production trust infrastructure (v1.0)**: reliability, security, tests, docs, deployment, privacy redaction, API stability, rate limits, and database migration.
+| **v0.1** | Agent Gateway              | Implemented   |
+| **v0.2** | Wallet Mandates            | Implemented   |
+| **v0.3** | Crypto Action Simulator    | Implemented   |
+| **v0.4** | Public Receipt Explorer    | Beta          |
+| **v0.5** | Onchain Anchors            | Implemented   |
+| **v0.6** | Agent Reputation           | Planned       |
+| **v0.7** | Developer SDK              | Implemented   |
+| **v0.8** | Tool / MCP Gateway         | Experimental  |
+| **v1.0** | Protocol Layer             | Planned       |
 
 Full details: [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -996,7 +986,7 @@ Webhook delivery retries (v0.8) and SDK approval long-polls run **in-process** w
 
 ### 5 · Pre-launch checklist
 - [ ] `npm run build` exits 0
-- [ ] `npm test` — 86 unit tests pass
+- [ ] `npm test` — 108 unit tests pass
 - [ ] Demo data reset: run `npx prisma migrate reset --force` against the prod DB if you want a fresh state (this **destroys** all data — don't run on a DB that already has real receipts)
 - [ ] Don't ship the seeded Atlas-01 demo key to real users (rotate via `/agents → Rotate Key` or delete and re-create)
 - [ ] `MANDATESEAL_ADMIN_ADDRESSES` set; `/dashboard` returns 307 → `/login` without cookie

@@ -1,7 +1,7 @@
 {
   "name": "mandateseal",
   "private": true,
-  "version": "0.6.0-beta",
+  "version": "0.7.0",
   "bin": {
     "mandateseal": "bin/mandateseal.mjs"
   },
