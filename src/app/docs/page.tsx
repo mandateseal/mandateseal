@@ -129,7 +129,36 @@ npm run dev`}</Pre>
         </p>
       </Section>
 
-      <Section n="09" title="TypeScript SDK">
+      <Section n="09" title="MCP server (Claude Desktop / Code / Cursor)">
+        <p className="text-paperMuted text-sm">
+          MandateSeal speaks the Model Context Protocol over a single HTTP
+          endpoint. Point any MCP host at <code>POST /api/mcp</code> with
+          your agent's bearer token; every <code>tools/call</code> is gated
+          by that agent's mandate and produces two sealed receipts
+          (preflight + outcome).
+        </p>
+        <Pre>{`# claude_desktop_config.json — or Claude Code mcpServers, or Cursor
+{
+  "mcpServers": {
+    "mandateseal": {
+      "transport": "http",
+      "url": "https://your-deploy.example.com/api/mcp",
+      "headers": {
+        "Authorization": "Bearer msk_..."
+      }
+    }
+  }
+}`}</Pre>
+        <p className="mt-3 text-paperMuted text-sm">
+          The MCP host calls <code>tools/list</code> to discover registered
+          tools and <code>tools/call</code> to invoke them. Every call's
+          response includes a <code>_meta.mandateseal</code> block carrying
+          the two receipt ids — the host can surface "this was sealed by
+          MandateSeal" or hand the ids back to the user for audit.
+        </p>
+      </Section>
+
+      <Section n="10" title="TypeScript SDK">
         <Pre>{`import { MandateSeal } from "@/sdk/mandateseal";
 
 const seal = new MandateSeal({
@@ -157,7 +186,7 @@ const proof = await seal.verifyReceipt(result.receipt);
 if (!proof.valid) throw new Error("receipt tampered with");`}</Pre>
       </Section>
 
-      <Section n="10" title="Policy engine — rule order">
+      <Section n="11" title="Policy engine — rule order">
         <ol className="list-decimal pl-6 mt-2 space-y-1 text-paper text-sm">
           <li>If mandate is disabled → APPROVED.</li>
           <li>Tool in <code>blockedTools</code> → BLOCKED.</li>

@@ -106,24 +106,31 @@ Status: Implemented
 
 ## v0.8 — Tool / MCP Gateway
 
-Status: Beta
+Status: Implemented
 
-Route agent tool calls through policy AND seal the result.
+Route agent tool calls through policy AND seal the result, two ways:
 
-- Tool registry, HTTP proxy via `/api/proxy/:tool`
-- Preflight receipt before forwarding (existing v0.7)
-- **Outcome receipt after the upstream returns** — second sealed receipt
-  with `preflightReceiptId`, `upstreamStatus`, `upstreamDurationMs`,
-  `upstreamBytesIn`, `upstreamBytesOut`, `upstreamBodyHash` (sha256 of
-  response body). Closes the "Prove after" half of the lifecycle.
-- Both receipts are independently Ed25519-signed and merkle-anchored.
+- **HTTP proxy** at `/api/proxy/:tool` for SDK callers — preflight receipt
+  before forward, outcome receipt after upstream returns. Both receipts
+  Ed25519-signed and merkle-anchored, linked via `preflightReceiptId`.
+- **MCP server** at `POST /api/mcp` — Streamable HTTP transport, JSON-RPC
+  2.0. Bearer-authed with the agent's API key. Implements `initialize`,
+  `tools/list`, `tools/call`, `ping`, `notifications/initialized`. Each
+  `tools/call` triggers the same preflight + outcome cycle as the HTTP
+  proxy. Response includes `_meta.mandateseal.{preflightReceiptId,
+  outcomeReceiptId, upstreamStatus, upstreamBodySha256}` so MCP hosts
+  (Claude Desktop, Claude Code, Cursor, custom) can surface the proof
+  chain.
 
 Remaining:
 
-- MCP server adapter — expose MandateSeal as an MCP endpoint so Claude
-  and other agent frameworks plug in directly (no SDK wrap needed)
+- SSE streaming responses (Vercel hobby maxDuration limits the value;
+  defer until we run on a long-lived host)
+- Resources + prompts (MCP capabilities beyond tools)
 - Tool quotas / per-tool rate limits separate from per-agent
 - Replay protection (idempotency keys on tool calls)
+- Per-tool `inputSchema` column so MCP hosts can validate arguments
+  client-side instead of receiving a permissive "any JSON" schema
 
 ## v1.0 — Protocol Layer
 
@@ -149,7 +156,7 @@ MandateSeal as a public protocol rather than a hosted service.
 | v0.5    | Onchain Anchors            | Implemented   |
 | v0.6    | Agent Reputation           | Implemented   |
 | v0.7    | Developer SDK              | Implemented   |
-| v0.8    | Tool / MCP Gateway         | Beta          |
+| v0.8    | Tool / MCP Gateway         | Implemented   |
 | v1.0    | Protocol Layer             | Planned       |
 
 ---

@@ -865,7 +865,7 @@ These are **deliberate omissions** in v0.1 — see [docs/ROADMAP.md](docs/ROADMA
 - ✅ **Agent reputation (v0.6)** — public score + tier per agent computed from receipt history (volume, anchored ratio, approval², block penalty, longevity, recency); exposed at `GET /api/agents/:id/reputation` and surfaced on `/a/:id` + `/agents`
 - ✅ **Public receipt explorer (v0.4)** — `/r/:id` + `/a/:id`, dynamic OG image per receipt, `?embed=1` iframe view, Download PNG / Tweet / Cast share toolbar, per-mandate `publicFields` redaction policy
 - ✅ **Execution-outcome receipt (v0.8)** — proxy now seals a SECOND receipt after the upstream returns, with `upstreamStatus`, `upstreamDurationMs`, `upstreamBytesIn/Out`, `upstreamBodyHash` (sha256 of the response body). Linked back via `preflightReceiptId`.
-- ❌ **MCP server adapter (v0.8)** — Tool gateway + outcome receipts exist; MCP-native endpoint planned
+- ✅ **MCP server adapter (v0.8)** — `POST /api/mcp` speaks JSON-RPC 2.0 over Streamable HTTP. `tools/list` + `tools/call` map directly to the Tool registry; each call seals preflight + outcome receipts and returns the ids back to the MCP host (Claude Desktop, Claude Code, Cursor) via `_meta.mandateseal`. Bearer-authed with the agent's API key — the entire MCP session is identified as that agent.
 - ❌ **Multi-tenant / org isolation** — single global namespace (v1.0 Protocol Layer)
 - ❌ **API key revocation audit trail** — rotation and delete exist, no history of revoked keys
 - 🟡 **Test suite** — 108 Vitest unit tests covering canonical JSON, 20-rule policy engine (incl. 14 crypto rule tests), Ed25519 sign/verify + tamper, receipt filter, daily-budget enforcement, tool schemas, webhook schemas, merkle tree (build/proof/tamper); API route integration tests deferred
@@ -892,7 +892,7 @@ Status labels:
 | **v0.5** | Onchain Anchors            | Implemented   |
 | **v0.6** | Agent Reputation           | Implemented   |
 | **v0.7** | Developer SDK              | Implemented   |
-| **v0.8** | Tool / MCP Gateway         | Beta          |
+| **v0.8** | Tool / MCP Gateway         | Implemented   |
 | **v1.0** | Protocol Layer             | Planned       |
 
 Full details: [docs/ROADMAP.md](docs/ROADMAP.md).
