@@ -38,6 +38,9 @@ export interface MandateSnapshot {
   dailyTokenSpendUsd: number;
   requireApprovalForSwaps: boolean;
   requireApprovalForTransfers: boolean;
+  // v0.4 — operator-controlled public exposure policy. Not consumed by the
+  // policy engine; carried on the snapshot so it's available downstream.
+  publicFields: string[] | null;
 }
 
 export interface PolicyDecision {

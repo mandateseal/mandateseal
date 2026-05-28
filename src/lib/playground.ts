@@ -49,6 +49,7 @@ function demoSnapshot(): MandateSnapshot {
     dailyTokenSpendUsd: 500,
     requireApprovalForSwaps: true,
     requireApprovalForTransfers: false,
+    publicFields: null,
   };
 }
 

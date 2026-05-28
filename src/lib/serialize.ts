@@ -66,12 +66,65 @@ export function publicMandate(m: Mandate) {
  * still serve as proof — verification by id still works against the server's
  * stored full payload via /api/verify. Offline verification on a redacted
  * payload would fail by design (the canonical hash is over the FULL receipt).
+ *
+ * v0.4 — operator-controlled exposure. If a `publicFields` policy is passed
+ * (parsed from Mandate.publicFields), fields outside the allowlist are
+ * blanked. Fields that are part of the proof itself (id, hashes, signature,
+ * decision, timestamp) are NEVER redacted — without them the receipt cannot
+ * be verified and the page becomes useless.
  */
-export function redactedReceipt(view: ReceiptView): ReceiptView {
-  return {
-    ...view,
-    rawPayload: null,
-  };
+const ALWAYS_PUBLIC: ReadonlySet<keyof ReceiptView> = new Set([
+  "id",
+  "agentId",
+  "decision",
+  "timestamp",
+  "policyHash",
+  "receiptHash",
+  "signature",
+  "createdAt",
+]);
+
+export function redactedReceipt(
+  view: ReceiptView,
+  publicFields?: string[] | null,
+): ReceiptView {
+  // Default behavior (no policy set): hide rawPayload only — the pre-v0.4 redaction.
+  if (!publicFields) {
+    return { ...view, rawPayload: null };
+  }
+
+  const allow = new Set(publicFields);
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(view) as Array<[keyof ReceiptView, unknown]>) {
+    if (ALWAYS_PUBLIC.has(k) || allow.has(k as string)) {
+      out[k] = v;
+    } else {
+      // Blank scalar fields, null nullable refs, null rawPayload.
+      out[k] = k === "rawPayload" ? null : typeof v === "number" ? null : null;
+    }
+  }
+  // costUsd is non-nullable in the type — restore 0 when redacted so the
+  // shape stays valid for ReceiptCard rendering.
+  if (typeof out.costUsd !== "number") out.costUsd = 0;
+  if (out.reason === null) out.reason = "(redacted)";
+  if (out.matchedRule === null) out.matchedRule = "(redacted)";
+  if (out.riskLevel === null) out.riskLevel = view.riskLevel;
+  if (out.actionType === null) out.actionType = "(redacted)";
+  if (out.tool === null) out.tool = "(redacted)";
+  if (out.target === null) out.target = "(redacted)";
+  if (out.mandateId === null) out.mandateId = "(redacted)";
+  return out as unknown as ReceiptView;
+}
+
+/** Parse the Mandate.publicFields JSON column safely. */
+export function parsePublicFields(raw: string | null | undefined): string[] | null {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v.map(String) : null;
+  } catch {
+    return null;
+  }
 }
 
 export function publicReceipt(r: Receipt): ReceiptView {

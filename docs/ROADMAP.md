@@ -54,15 +54,17 @@ Status: Implemented
 
 Receipts are shareable proof artifacts.
 
-- `/r/[id]` public proof page with redacted rawPayload; full verify still works via `/api/verify` + id
+- `/r/[id]` public proof page with redaction; full verify still works via `/api/verify` + id
 - `/a/[id]` public agent activity page with reputation score + recent receipts
 - **Dynamic 1200×630 OG image** per receipt (decision pill + action + reason + agent + hash) — shared links render as proper social previews on Twitter, Farcaster, Telegram, Discord
 - **Embed view** via `?embed=1` — chrome-light iframe-friendly card with verified pill, copy-paste iframe snippet on the full page
+- **Share toolbar** — Download PNG (points at the OG image route), Tweet intent, Farcaster cast intent
+- **Field-level public/private controls** — `Mandate.publicFields` is a per-mandate allowlist; null = built-in defaults, explicit array opts each field in. Operator edits via MandateBuilder. Proof-grade fields (id, hashes, signature, decision, timestamp) are always public so the receipt stays verifiable.
 
-Remaining:
+Remaining (minor):
 
-- Copy-as-image button (downloadable PNG, locally rendered)
-- Field-level public/private controls (per-mandate redaction policy)
+- Locally-rendered copy-as-image (current Download PNG is server-rendered — fine for most cases, but a client canvas path would work offline)
+- Per-field UI affordance — currently a free-text TagListEditor; a checkbox grid would be friendlier
 
 ## v0.5 — Onchain Anchors
 

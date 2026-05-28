@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
-import { publicReceipt, redactedReceipt } from "@/lib/serialize";
+import { publicReceipt, redactedReceipt, parsePublicFields } from "@/lib/serialize";
 import { recomputeAndVerify, reEvaluateFromSnapshot } from "@/lib/receipt";
 import { ReceiptCard } from "@/components/ReceiptCard";
 
@@ -16,16 +16,22 @@ interface PageProps {
 async function loadReceipt(id: string) {
   const stored = await prisma.receipt.findUnique({
     where: { id },
-    include: { agent: { select: { id: true, name: true } } },
+    include: {
+      agent: { select: { id: true, name: true } },
+      mandate: { select: { publicFields: true } },
+    },
   });
   if (!stored) return null;
   const full = publicReceipt(stored);
+  const policy = parsePublicFields(stored.mandate?.publicFields ?? null);
   return {
     // Full version is kept server-side for verification recomputation.
     full,
-    // Redacted version is what reaches the client / Copy JSON button.
-    view: redactedReceipt(full),
+    // Redacted version respects the mandate's publicFields policy. Null
+    // policy → built-in defaults (rawPayload-only redaction, pre-v0.4).
+    view: redactedReceipt(full, policy),
     agent: stored.agent,
+    publicFieldsPolicy: policy,
   };
 }
 
@@ -120,6 +126,45 @@ export default async function PublicReceiptPage({ params, searchParams }: PagePr
   -H "content-type: application/json" \\
   -d '{"id":"${r.id}"}'`}
         </pre>
+      </div>
+
+      <div className="mt-6 ink-panel p-5">
+        <div className="label">SHARE</div>
+        <p className="mt-2 text-paperMuted text-sm">
+          The 1200×630 OG image renders inline on Twitter, Farcaster, Telegram,
+          and Discord. Use the download link to grab the PNG directly for
+          slides / docs / status pages.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <a
+            href={`/r/${r.id}/opengraph-image`}
+            download={`mandateseal-${r.id}.png`}
+            className="command-button accent"
+          >
+            Download PNG
+          </a>
+          <a
+            href={`https://twitter.com/intent/tweet?${new URLSearchParams({
+              text: `${r.decision} · ${r.actionType} · ${r.matchedRule}\n\nSealed by MandateSeal:`,
+            }).toString()}&url=${encodeURIComponent(`https://mandateseal.vercel.app/r/${r.id}`)}`}
+            target="_blank"
+            rel="noreferrer"
+            className="command-button"
+          >
+            Tweet ↗
+          </a>
+          <a
+            href={`https://warpcast.com/~/compose?${new URLSearchParams({
+              text: `${r.decision} · ${r.actionType} · sealed by MandateSeal`,
+              "embeds[]": `https://mandateseal.vercel.app/r/${r.id}`,
+            }).toString()}`}
+            target="_blank"
+            rel="noreferrer"
+            className="command-button"
+          >
+            Cast ↗
+          </a>
+        </div>
       </div>
 
       <div className="mt-6 ink-panel p-5">

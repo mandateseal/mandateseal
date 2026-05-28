@@ -52,6 +52,12 @@ export async function POST(req: Request) {
       dailyTokenSpendUsd: parsed.data.dailyTokenSpendUsd,
       requireApprovalForSwaps: parsed.data.requireApprovalForSwaps,
       requireApprovalForTransfers: parsed.data.requireApprovalForTransfers,
+      // v0.4 — null/empty stays null so the redaction logic picks the
+      // built-in defaults; non-empty arrays get JSON-stringified for storage.
+      publicFields:
+        parsed.data.publicFields && parsed.data.publicFields.length > 0
+          ? JSON.stringify(parsed.data.publicFields)
+          : null,
     },
   });
 

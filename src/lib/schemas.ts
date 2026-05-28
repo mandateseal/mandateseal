@@ -39,6 +39,9 @@ export const createMandateSchema = z.object({
   dailyTokenSpendUsd: z.number().nonnegative().default(0),
   requireApprovalForSwaps: z.boolean().default(false),
   requireApprovalForTransfers: z.boolean().default(false),
+  // v0.4 — per-mandate public exposure policy on /r/:id. Null = built-in
+  // safe defaults; explicit array = allowlist of field names.
+  publicFields: z.array(z.string().min(1)).optional().nullable(),
 });
 
 export const updateMandateSchema = createMandateSchema.partial().omit({ agentId: true });

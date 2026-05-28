@@ -54,6 +54,12 @@ model Mandate {
   dailyTokenSpendUsd           Float   @default(0)
   requireApprovalForSwaps      Boolean @default(false)
   requireApprovalForTransfers  Boolean @default(false)
+  // v0.4 — field-level public/private policy. JSON array of field names the
+  // operator wants exposed on the public /r/:id page. Null = use built-in
+  // safe defaults (the current behavior — most fields public, rawPayload
+  // redacted). Empty array [] = redact everything except the proof-grade
+  // fields (id/hash/signature/decision).
+  publicFields                 String?
   createdAt                 DateTime  @default(now())
   updatedAt                 DateTime  @updatedAt
 

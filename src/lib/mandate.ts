@@ -37,7 +37,18 @@ export function toMandateSnapshot(m: Mandate): MandateSnapshot {
     dailyTokenSpendUsd: m.dailyTokenSpendUsd ?? 0,
     requireApprovalForSwaps: m.requireApprovalForSwaps ?? false,
     requireApprovalForTransfers: m.requireApprovalForTransfers ?? false,
+    publicFields: parsePublicFieldsOptional(m.publicFields ?? null),
   };
+}
+
+function parsePublicFieldsOptional(raw: string | null): string[] | null {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v.map(String) : null;
+  } catch {
+    return null;
+  }
 }
 
 export function serializeListsForDb(input: Partial<{

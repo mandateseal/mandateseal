@@ -28,6 +28,8 @@ export interface MandateData {
   dailyTokenSpendUsd: number;
   requireApprovalForSwaps: boolean;
   requireApprovalForTransfers: boolean;
+  // v0.4 — operator-controlled public exposure on /r/:id.
+  publicFields: string[] | null;
 }
 
 export function MandateBuilder({
@@ -80,6 +82,7 @@ export function MandateBuilder({
           dailyTokenSpendUsd: draft.dailyTokenSpendUsd,
           requireApprovalForSwaps: draft.requireApprovalForSwaps,
           requireApprovalForTransfers: draft.requireApprovalForTransfers,
+          publicFields: draft.publicFields,
         }),
       });
       const data = await res.json();
@@ -277,6 +280,26 @@ export function MandateBuilder({
           require approval for transfers
         </label>
       </div>
+
+      <div className="dashed-rule my-6" />
+      <div className="flex items-center gap-2 mb-3">
+        <span className="label">PUBLIC EXPOSURE</span>
+        <span className="font-tech text-[10px] uppercase tracking-[0.22em] text-paperMuted">
+          v0.4 · per-mandate redaction policy
+        </span>
+      </div>
+      <p className="text-[12px] text-paperMuted max-w-2xl mb-3">
+        Empty = default safe redaction (most fields visible on <code>/r/:id</code>, rawPayload hidden).
+        Add field names to override. Proof-grade fields (id, hashes, signature, decision, timestamp)
+        are always public — they're what makes the receipt verifiable.
+      </p>
+      <TagListEditor
+        label="public fields on /r/:id"
+        tone="allow"
+        values={draft.publicFields ?? []}
+        onChange={(v) => update("publicFields", v.length === 0 ? null : v)}
+        placeholder="actionType, tool, chain, token, recipient, txValueUsd, …"
+      />
 
       <div className="dashed-rule my-5" />
       <div className="flex items-center gap-3">

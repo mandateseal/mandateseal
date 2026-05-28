@@ -29,6 +29,7 @@ const baseSnapshot: MandateSnapshot = {
   dailyTokenSpendUsd: 0,
   requireApprovalForSwaps: false,
   requireApprovalForTransfers: false,
+  publicFields: null,
 };
 
 const baseAction: ActionRequest = {

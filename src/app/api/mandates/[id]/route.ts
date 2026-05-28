@@ -44,6 +44,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (parsed.data.dailyTokenSpendUsd !== undefined) data.dailyTokenSpendUsd = parsed.data.dailyTokenSpendUsd;
   if (parsed.data.requireApprovalForSwaps !== undefined) data.requireApprovalForSwaps = parsed.data.requireApprovalForSwaps;
   if (parsed.data.requireApprovalForTransfers !== undefined) data.requireApprovalForTransfers = parsed.data.requireApprovalForTransfers;
+  // v0.4 — publicFields. Explicit empty array OR null clears the policy
+  // (falls back to default redaction). Non-empty array → JSON-stringified.
+  if (parsed.data.publicFields !== undefined) {
+    data.publicFields =
+      parsed.data.publicFields && parsed.data.publicFields.length > 0
+        ? JSON.stringify(parsed.data.publicFields)
+        : null;
+  }
 
   const m = await prisma.mandate.update({ where: { id: params.id }, data });
   return NextResponse.json({ mandate: publicMandate(m) });

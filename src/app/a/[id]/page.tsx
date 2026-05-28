@@ -65,7 +65,7 @@ async function loadAgent(id: string) {
     counts: countsByDecision,
     total,
     totalCostUsd: totals._sum.costUsd ?? 0,
-    recent: recent.map(publicReceipt).map(redactedReceipt),
+    recent: recent.map(publicReceipt).map((r) => redactedReceipt(r)),
     anchoredCount,
     reputation,
   };

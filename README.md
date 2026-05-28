@@ -863,6 +863,7 @@ These are **deliberate omissions** in v0.1 — see [docs/ROADMAP.md](docs/ROADMA
 - ✅ **Onchain anchoring (v0.5)** — Base / Base Sepolia broadcast via signer wallet, no contract; calldata format `MS01 | batchIndex | prevRoot | root`
 - ✅ **Rate-limiting** — in-memory sliding window on `/api/check`, `/api/auth/*`, `/api/anchor`, `/api/verify`, `/api/proxy`; per-instance (swap for Upstash Redis for adversary-grade)
 - ✅ **Agent reputation (v0.6)** — public score + tier per agent computed from receipt history (volume, anchored ratio, approval², block penalty, longevity, recency); exposed at `GET /api/agents/:id/reputation` and surfaced on `/a/:id` + `/agents`
+- ✅ **Public receipt explorer (v0.4)** — `/r/:id` + `/a/:id`, dynamic OG image per receipt, `?embed=1` iframe view, Download PNG / Tweet / Cast share toolbar, per-mandate `publicFields` redaction policy
 - ✅ **Execution-outcome receipt (v0.8)** — proxy now seals a SECOND receipt after the upstream returns, with `upstreamStatus`, `upstreamDurationMs`, `upstreamBytesIn/Out`, `upstreamBodyHash` (sha256 of the response body). Linked back via `preflightReceiptId`.
 - ❌ **MCP server adapter (v0.8)** — Tool gateway + outcome receipts exist; MCP-native endpoint planned
 - ❌ **Multi-tenant / org isolation** — single global namespace (v1.0 Protocol Layer)
