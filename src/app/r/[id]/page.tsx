@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: { id: string };
+  searchParams: { embed?: string };
 }
 
 async function loadReceipt(id: string) {
@@ -34,20 +35,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const r = data.view;
   const title = `${r.decision} · ${r.actionType} · MandateSeal Receipt`;
   const description = `Agent ${data.agent.name}. Decision ${r.decision}. ${r.matchedRule}. Sealed at ${r.timestamp}.`;
+  // OG / Twitter image is provided by the colocated opengraph-image.tsx
+  // route — Next.js auto-injects the meta. summary_large_image so the
+  // 1200×630 receipt card preview renders inline on Twitter / Telegram /
+  // Farcaster / Discord.
   return {
     title,
     description,
-    openGraph: {
-      title,
-      description,
-      type: "article",
-      images: ["/mandateseal-mark.svg"],
-    },
-    twitter: { card: "summary", title, description, images: ["/mandateseal-mark.svg"] },
+    openGraph: { title, description, type: "article" },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
-export default async function PublicReceiptPage({ params }: PageProps) {
+export default async function PublicReceiptPage({ params, searchParams }: PageProps) {
   const data = await loadReceipt(params.id);
   if (!data) notFound();
 
@@ -56,6 +56,26 @@ export default async function PublicReceiptPage({ params }: PageProps) {
   const verdict = recomputeAndVerify({ ...data.full, rawPayload: data.full.rawPayload ?? {} });
   const reEval = reEvaluateFromSnapshot({ ...data.full, rawPayload: data.full.rawPayload ?? {} });
   const r = data.view;
+  const isEmbed = searchParams.embed === "1";
+
+  if (isEmbed) {
+    // Compact embeddable view — meant to be iframed into other sites. No
+    // global nav / footer (those still render via layout), but we strip the
+    // long-form quickstart copy and just show: verify pill + ReceiptCard.
+    return (
+      <div className="page-container py-6 max-w-3xl">
+        <div className="font-tech text-[10px] uppercase tracking-[0.22em] text-paperMuted mb-3">
+          &gt; mandateseal · public receipt · {verdict.valid ? "verified ✓" : "invalid ✗"}
+        </div>
+        <ReceiptCard receipt={r} />
+        <div className="mt-3 font-tech text-[10px] uppercase tracking-[0.22em] text-paperMuted text-right">
+          <Link href={`/r/${r.id}`} className="hover:text-paper">open full ↗</Link>
+        </div>
+      </div>
+    );
+  }
+
+  const embedSrc = `/r/${r.id}?embed=1`;
 
   return (
     <div className="page-container py-10 max-w-3xl">
@@ -100,6 +120,33 @@ export default async function PublicReceiptPage({ params }: PageProps) {
   -H "content-type: application/json" \\
   -d '{"id":"${r.id}"}'`}
         </pre>
+      </div>
+
+      <div className="mt-6 ink-panel p-5">
+        <div className="label">EMBED THIS RECEIPT</div>
+        <p className="mt-2 text-paperMuted text-sm">
+          Drop the iframe into any page; the embed view is chrome-light and renders the
+          card + verified pill only. Resize the parent — the receipt scales with its container.
+        </p>
+        <pre className="mt-3 font-tech text-[11px] text-paper overflow-x-auto whitespace-pre">
+{`<iframe
+  src="${embedSrc}"
+  width="100%"
+  height="640"
+  style="border:0"
+  loading="lazy"
+></iframe>`}
+        </pre>
+        <div className="mt-3">
+          <Link
+            href={embedSrc}
+            target="_blank"
+            rel="noreferrer"
+            className="command-button"
+          >
+            Open Embed View ↗
+          </Link>
+        </div>
       </div>
 
       <div className="mt-6 flex gap-3">

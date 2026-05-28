@@ -50,13 +50,19 @@ Operator can preview decisions without sending real tx.
 
 ## v0.4 — Public Receipt Explorer
 
-Status: Beta
+Status: Implemented
 
-Receipts as shareable proof artifacts.
+Receipts are shareable proof artifacts.
 
-- `/r/[id]` public proof page with redacted payload
-- `/a/[id]` public agent activity page
-- Embed cards, copy-as-image, field-level public/private controls planned
+- `/r/[id]` public proof page with redacted rawPayload; full verify still works via `/api/verify` + id
+- `/a/[id]` public agent activity page with reputation score + recent receipts
+- **Dynamic 1200×630 OG image** per receipt (decision pill + action + reason + agent + hash) — shared links render as proper social previews on Twitter, Farcaster, Telegram, Discord
+- **Embed view** via `?embed=1` — chrome-light iframe-friendly card with verified pill, copy-paste iframe snippet on the full page
+
+Remaining:
+
+- Copy-as-image button (downloadable PNG, locally rendered)
+- Field-level public/private controls (per-mandate redaction policy)
 
 ## v0.5 — Onchain Anchors
 
@@ -137,7 +143,7 @@ MandateSeal as a public protocol rather than a hosted service.
 | v0.1    | Agent Gateway              | Implemented   |
 | v0.2    | Wallet Mandates            | Implemented   |
 | v0.3    | Crypto Action Simulator    | Implemented   |
-| v0.4    | Public Receipt Explorer    | Beta          |
+| v0.4    | Public Receipt Explorer    | Implemented   |
 | v0.5    | Onchain Anchors            | Implemented   |
 | v0.6    | Agent Reputation           | Implemented   |
 | v0.7    | Developer SDK              | Implemented   |

@@ -887,7 +887,7 @@ Status labels:
 | **v0.1** | Agent Gateway              | Implemented   |
 | **v0.2** | Wallet Mandates            | Implemented   |
 | **v0.3** | Crypto Action Simulator    | Implemented   |
-| **v0.4** | Public Receipt Explorer    | Beta          |
+| **v0.4** | Public Receipt Explorer    | Implemented   |
 | **v0.5** | Onchain Anchors            | Implemented   |
 | **v0.6** | Agent Reputation           | Implemented   |
 | **v0.7** | Developer SDK              | Implemented   |
