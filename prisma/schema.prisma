@@ -92,6 +92,17 @@ model Receipt {
   contractAddress  String?
   functionSelector String?
   txHash           String?
+  // v0.8 — outcome receipt for proxy calls. When this row is itself an
+  // outcome receipt, preflightReceiptId points back at the corresponding
+  // preflight; the upstream* fields capture what the tool actually returned.
+  preflightReceiptId String?
+  preflight          Receipt?  @relation("PreflightOutcome", fields: [preflightReceiptId], references: [id], onDelete: SetNull)
+  outcomes           Receipt[] @relation("PreflightOutcome")
+  upstreamStatus     Int?
+  upstreamDurationMs Int?
+  upstreamBytesIn    Int?
+  upstreamBytesOut   Int?
+  upstreamBodyHash   String?
 
   agent     Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
   mandate   Mandate   @relation(fields: [mandateId], references: [id], onDelete: Cascade)
@@ -102,6 +113,7 @@ model Receipt {
   @@index([mandateId])
   @@index([timestamp])
   @@index([anchorBatchId])
+  @@index([preflightReceiptId])
 }
 
 model AnchorBatch {

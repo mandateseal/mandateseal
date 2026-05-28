@@ -98,13 +98,24 @@ Status: Implemented
 
 ## v0.8 — Tool / MCP Gateway
 
-Status: Experimental
+Status: Beta
 
-Route agent tool calls through policy.
+Route agent tool calls through policy AND seal the result.
 
 - Tool registry, HTTP proxy via `/api/proxy/:tool`
-- MCP server adapter — make MandateSeal an MCP endpoint so Claude/agent frameworks plug in directly
-- Post-execution outcome receipts (v0.7.1) — close the preflight-only gap
+- Preflight receipt before forwarding (existing v0.7)
+- **Outcome receipt after the upstream returns** — second sealed receipt
+  with `preflightReceiptId`, `upstreamStatus`, `upstreamDurationMs`,
+  `upstreamBytesIn`, `upstreamBytesOut`, `upstreamBodyHash` (sha256 of
+  response body). Closes the "Prove after" half of the lifecycle.
+- Both receipts are independently Ed25519-signed and merkle-anchored.
+
+Remaining:
+
+- MCP server adapter — expose MandateSeal as an MCP endpoint so Claude
+  and other agent frameworks plug in directly (no SDK wrap needed)
+- Tool quotas / per-tool rate limits separate from per-agent
+- Replay protection (idempotency keys on tool calls)
 
 ## v1.0 — Protocol Layer
 
@@ -130,7 +141,7 @@ MandateSeal as a public protocol rather than a hosted service.
 | v0.5    | Onchain Anchors            | Implemented   |
 | v0.6    | Agent Reputation           | Implemented   |
 | v0.7    | Developer SDK              | Implemented   |
-| v0.8    | Tool / MCP Gateway         | Experimental  |
+| v0.8    | Tool / MCP Gateway         | Beta          |
 | v1.0    | Protocol Layer             | Planned       |
 
 ---

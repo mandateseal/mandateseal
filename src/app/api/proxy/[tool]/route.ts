@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { authenticateAgent } from "@/lib/auth";
-import { evaluateAndSeal } from "@/lib/receipt";
+import { evaluateAndSeal, sealOutcomeReceipt } from "@/lib/receipt";
+import { sha256Bytes } from "@/lib/crypto";
 import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
@@ -27,13 +28,15 @@ const FORWARD_DROP_HEADERS = new Set([
 //      embedded in the response headers but the *upstream body* is the body.
 //   4. If NOT APPROVED, returns the decision and approval handle.
 //
-// LIFECYCLE NOTE — preflight-only.
-//   The pre-receipt sealed here proves the *policy decision* before the
-//   upstream call; it does NOT prove what the upstream actually returned.
-//   The execution-outcome receipt (a second sealed receipt covering upstream
-//   status, durationMs, response-body hash) is part of the v0.8 Tool / MCP
-//   Gateway milestone. Until then the proxy's "Prove after" half lives only
-//   in the response headers — re-runnable but not cryptographically sealed.
+// LIFECYCLE — preflight + outcome (v0.8).
+//   1. Preflight receipt seals the policy decision BEFORE the upstream call.
+//   2. After the upstream returns (or errors), an outcome receipt is sealed
+//      covering upstream status, latency, byte counts, and a sha256 of the
+//      response body. The outcome receipt is linked back to the preflight
+//      via preflightReceiptId and is independently verifiable.
+//   3. Both receipts are emitted into the webhook fanout and the audit log.
+//
+// "Approve before. Prove after." — preflight = approve, outcome = prove.
 export async function POST(req: Request, { params }: { params: { tool: string } }) {
   const agent = await authenticateAgent(req);
   if (!agent) {
@@ -119,25 +122,68 @@ export async function POST(req: Request, { params }: { params: { tool: string } 
     const upstreamRes = await fetch(tool.endpoint, upstreamReq);
     const buf = await upstreamRes.arrayBuffer();
     const durationMs = Date.now() - startedAt;
+    const bodyHash = sha256Bytes(buf);
 
-    const out = new NextResponse(buf, {
-      status: upstreamRes.status,
-      headers: {
-        "content-type": upstreamRes.headers.get("content-type") ?? "application/octet-stream",
-        "x-mandateseal-receipt": receipt.id,
-        "x-mandateseal-decision": receipt.decision,
-        "x-mandateseal-upstream-status": String(upstreamRes.status),
-        "x-mandateseal-duration-ms": String(durationMs),
-      },
-    });
-    return out;
+    // v0.8 — seal the outcome receipt. Failures here are logged but do not
+    // tank the response — the caller still gets the upstream bytes, and the
+    // preflight receipt is already persisted as the audit anchor.
+    let outcomeId: string | null = null;
+    let outcomeHash: string | null = null;
+    try {
+      const outcome = await sealOutcomeReceipt({
+        preflight: receipt,
+        upstreamStatus: upstreamRes.status,
+        upstreamDurationMs: durationMs,
+        upstreamBytesIn: buf.byteLength,
+        upstreamBytesOut: rawBody.byteLength,
+        upstreamBodyHash: bodyHash,
+      });
+      outcomeId = outcome.id;
+      outcomeHash = outcome.receiptHash;
+    } catch (sealErr) {
+      console.error("[proxy] outcome seal failed", sealErr);
+    }
+
+    const headers: Record<string, string> = {
+      "content-type": upstreamRes.headers.get("content-type") ?? "application/octet-stream",
+      "x-mandateseal-receipt": receipt.id,
+      "x-mandateseal-decision": receipt.decision,
+      "x-mandateseal-upstream-status": String(upstreamRes.status),
+      "x-mandateseal-duration-ms": String(durationMs),
+      "x-mandateseal-body-sha256": bodyHash,
+    };
+    if (outcomeId) headers["x-mandateseal-outcome-receipt"] = outcomeId;
+    if (outcomeHash) headers["x-mandateseal-outcome-hash"] = outcomeHash;
+
+    return new NextResponse(buf, { status: upstreamRes.status, headers });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "fetch failed";
     const aborted = msg.includes("aborted") || (err as Error)?.name === "AbortError";
+    const durationMs = Date.now() - startedAt;
+
+    // v0.8 — seal an outcome receipt even on error so the audit log shows
+    // the upstream failure (504 timeout / 502 etc.) and not just an empty
+    // preflight. Body hash is sha256 of empty bytes.
+    let outcomeId: string | null = null;
+    try {
+      const outcome = await sealOutcomeReceipt({
+        preflight: receipt,
+        upstreamStatus: aborted ? 504 : 502,
+        upstreamDurationMs: durationMs,
+        upstreamBytesIn: 0,
+        upstreamBytesOut: rawBody.byteLength,
+        upstreamBodyHash: sha256Bytes(new Uint8Array(0)),
+      });
+      outcomeId = outcome.id;
+    } catch (sealErr) {
+      console.error("[proxy] outcome seal failed (on error path)", sealErr);
+    }
+
     return NextResponse.json(
       {
         error: aborted ? `Upstream timed out after ${PROXY_TIMEOUT_MS}ms` : msg,
         receipt: { id: receipt.id, decision: receipt.decision },
+        ...(outcomeId ? { outcomeReceiptId: outcomeId } : {}),
       },
       { status: aborted ? 504 : 502 },
     );

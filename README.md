@@ -77,7 +77,7 @@ That's not accountability. That's a story you tell yourself between incidents.
 
 A single API call covers both halves. The agent doesn't need to call MandateSeal twice.
 
-> **Lifecycle note.** Receipts seal the *preflight* decision — proof that the policy engine ran and produced a verdict. The agent (or the proxy at `/api/proxy/:tool`) executes downstream and **execution-outcome receipts are not yet sealed**. The v0.8 Tool / MCP Gateway milestone closes this loop with a second sealed receipt covering upstream status, duration, and bytes returned.
+> **Lifecycle note.** Every `POST /api/check` produces a preflight receipt that seals the policy decision. Every `POST /api/proxy/:tool` now also produces an outcome receipt that seals what the upstream actually returned (status, latency, byte counts, sha256 of the response body). The outcome receipt is linked back to the preflight via `preflightReceiptId` and signed independently — third parties can verify both halves offline. "Approve before. Prove after." is now closed for tool calls.
 
 ---
 
@@ -863,8 +863,8 @@ These are **deliberate omissions** in v0.1 — see [docs/ROADMAP.md](docs/ROADMA
 - ✅ **Onchain anchoring (v0.5)** — Base / Base Sepolia broadcast via signer wallet, no contract; calldata format `MS01 | batchIndex | prevRoot | root`
 - ✅ **Rate-limiting** — in-memory sliding window on `/api/check`, `/api/auth/*`, `/api/anchor`, `/api/verify`, `/api/proxy`; per-instance (swap for Upstash Redis for adversary-grade)
 - ✅ **Agent reputation (v0.6)** — public score + tier per agent computed from receipt history (volume, anchored ratio, approval², block penalty, longevity, recency); exposed at `GET /api/agents/:id/reputation` and surfaced on `/a/:id` + `/agents`
-- ❌ **MCP server adapter (v0.8)** — Tool gateway exists; MCP-native endpoint planned
-- ❌ **Execution-outcome receipt** — preflight is sealed; post-tool outcome receipt deferred to v0.8
+- ✅ **Execution-outcome receipt (v0.8)** — proxy now seals a SECOND receipt after the upstream returns, with `upstreamStatus`, `upstreamDurationMs`, `upstreamBytesIn/Out`, `upstreamBodyHash` (sha256 of the response body). Linked back via `preflightReceiptId`.
+- ❌ **MCP server adapter (v0.8)** — Tool gateway + outcome receipts exist; MCP-native endpoint planned
 - ❌ **Multi-tenant / org isolation** — single global namespace (v1.0 Protocol Layer)
 - ❌ **API key revocation audit trail** — rotation and delete exist, no history of revoked keys
 - 🟡 **Test suite** — 108 Vitest unit tests covering canonical JSON, 20-rule policy engine (incl. 14 crypto rule tests), Ed25519 sign/verify + tamper, receipt filter, daily-budget enforcement, tool schemas, webhook schemas, merkle tree (build/proof/tamper); API route integration tests deferred
@@ -891,7 +891,7 @@ Status labels:
 | **v0.5** | Onchain Anchors            | Implemented   |
 | **v0.6** | Agent Reputation           | Implemented   |
 | **v0.7** | Developer SDK              | Implemented   |
-| **v0.8** | Tool / MCP Gateway         | Experimental  |
+| **v0.8** | Tool / MCP Gateway         | Beta          |
 | **v1.0** | Protocol Layer             | Planned       |
 
 Full details: [docs/ROADMAP.md](docs/ROADMAP.md).

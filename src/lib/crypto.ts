@@ -7,6 +7,12 @@ export function sha256Hex(input: string): string {
   return createHash("sha256").update(input).digest("hex");
 }
 
+/** Hash raw bytes — used by v0.8 outcome receipts to seal upstream response bodies. */
+export function sha256Bytes(buf: ArrayBuffer | Uint8Array): string {
+  const view = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  return createHash("sha256").update(view).digest("hex");
+}
+
 export function hashApiKey(key: string): string {
   return sha256Hex(key);
 }

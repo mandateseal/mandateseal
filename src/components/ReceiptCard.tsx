@@ -64,6 +64,38 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
         <Cell k="decision" v={receipt.decision} />
       </div>
 
+      {hasOutcomeFields(receipt) && (
+        <>
+          <div className="dashed-rule my-5" />
+          <div className="flex items-center gap-2 mb-3">
+            <span className="label">OUTCOME RECEIPT</span>
+            <span className="font-tech text-[10px] uppercase tracking-[0.22em] text-paperMuted">
+              · upstream {receipt.upstreamStatus}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-y-2 gap-x-4 font-tech text-[12px] text-paper">
+            {receipt.preflightReceiptId && (
+              <Cell k="preflight" v={receipt.preflightReceiptId} />
+            )}
+            {receipt.upstreamStatus !== null && (
+              <Cell k="status" v={String(receipt.upstreamStatus)} />
+            )}
+            {receipt.upstreamDurationMs !== null && (
+              <Cell k="duration" v={`${receipt.upstreamDurationMs}ms`} />
+            )}
+            {receipt.upstreamBytesIn !== null && (
+              <Cell k="bytes in" v={`${receipt.upstreamBytesIn}B`} />
+            )}
+            {receipt.upstreamBytesOut !== null && (
+              <Cell k="bytes out" v={`${receipt.upstreamBytesOut}B`} />
+            )}
+            {receipt.upstreamBodyHash && (
+              <Cell k="body sha256" v={receipt.upstreamBodyHash} />
+            )}
+          </div>
+        </>
+      )}
+
       {hasCryptoFields(receipt) && (
         <>
           <div className="dashed-rule my-5" />
@@ -156,6 +188,15 @@ function hasCryptoFields(r: ReceiptView): boolean {
       r.contractAddress ||
       r.functionSelector ||
       r.txHash,
+  );
+}
+
+function hasOutcomeFields(r: ReceiptView): boolean {
+  return Boolean(
+    r.preflightReceiptId ||
+      r.upstreamStatus !== null ||
+      r.upstreamDurationMs !== null ||
+      r.upstreamBodyHash,
   );
 }
 

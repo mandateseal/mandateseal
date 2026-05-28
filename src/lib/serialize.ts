@@ -30,6 +30,14 @@ export interface ReceiptView {
   contractAddress: string | null;
   functionSelector: string | null;
   txHash: string | null;
+  // v0.8 — outcome receipt fields. Null unless this row is the outcome
+  // produced by a proxy call.
+  preflightReceiptId: string | null;
+  upstreamStatus: number | null;
+  upstreamDurationMs: number | null;
+  upstreamBytesIn: number | null;
+  upstreamBytesOut: number | null;
+  upstreamBodyHash: string | null;
 }
 
 export function publicAgent(a: Agent) {
@@ -103,5 +111,11 @@ export function publicReceipt(r: Receipt): ReceiptView {
     contractAddress: r.contractAddress ?? null,
     functionSelector: r.functionSelector ?? null,
     txHash: r.txHash ?? null,
+    preflightReceiptId: r.preflightReceiptId ?? null,
+    upstreamStatus: r.upstreamStatus ?? null,
+    upstreamDurationMs: r.upstreamDurationMs ?? null,
+    upstreamBytesIn: r.upstreamBytesIn ?? null,
+    upstreamBytesOut: r.upstreamBytesOut ?? null,
+    upstreamBodyHash: r.upstreamBodyHash ?? null,
   };
 }

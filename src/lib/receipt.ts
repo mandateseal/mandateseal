@@ -36,6 +36,15 @@ export interface ReceiptRecord {
   contractAddress?: string | null;
   functionSelector?: string | null;
   txHash?: string | null;
+  // v0.8 — outcome receipt fields. Present only on receipts produced by
+  // `sealOutcomeReceipt` after a proxy call returns. The preflight pair is
+  // identified by preflightReceiptId.
+  preflightReceiptId?: string | null;
+  upstreamStatus?: number | null;
+  upstreamDurationMs?: number | null;
+  upstreamBytesIn?: number | null;
+  upstreamBytesOut?: number | null;
+  upstreamBodyHash?: string | null;
 }
 
 function cryptoFieldsOf(action: ActionRequest): Record<string, unknown> {
@@ -260,6 +269,123 @@ export function recomputeAndVerify(receipt: VerifyInput): {
     reasons.push("signature does not match Ed25519 public key");
   }
   return { valid: reasons.length === 0, reasons, expectedReceiptHash };
+}
+
+/**
+ * v0.8 — seal an outcome receipt for a proxy/tool call that already produced
+ * a preflight receipt. The outcome receipt is a second sealed row covering
+ * what the upstream actually returned (status, latency, byte counts, body
+ * hash). It is canonically hashed + Ed25519-signed exactly like the preflight,
+ * so a third party can independently verify "yes, MandateSeal saw this exact
+ * response from this exact tool at this exact time".
+ *
+ * Closes the "Prove after" half of the lifecycle: the preflight proves the
+ * policy decision; this proves the execution.
+ */
+export async function sealOutcomeReceipt(args: {
+  preflight: ReceiptRecord;
+  upstreamStatus: number;
+  upstreamDurationMs: number;
+  upstreamBytesIn: number;
+  upstreamBytesOut: number;
+  upstreamBodyHash: string;
+}): Promise<ReceiptRecord> {
+  const { preflight } = args;
+  const id = randomId("rct");
+  const timestamp = new Date().toISOString();
+
+  const outcome = {
+    preflightReceiptId: preflight.id,
+    upstreamStatus: args.upstreamStatus,
+    upstreamDurationMs: args.upstreamDurationMs,
+    upstreamBytesIn: args.upstreamBytesIn,
+    upstreamBytesOut: args.upstreamBytesOut,
+    upstreamBodyHash: args.upstreamBodyHash,
+  };
+
+  const rawPayload: Record<string, unknown> = {
+    actionType: "tool_call.outcome",
+    tool: preflight.tool,
+    target: preflight.target,
+    costUsd: 0,
+    metadata: { preflightReceiptId: preflight.id },
+    outcome,
+  };
+
+  const policyHash = hashCanonical({
+    action: {
+      actionType: "tool_call.outcome",
+      tool: preflight.tool,
+      target: preflight.target,
+      costUsd: 0,
+    },
+    outcome,
+  });
+
+  const reason = `Upstream returned ${args.upstreamStatus} in ${args.upstreamDurationMs}ms (${args.upstreamBytesIn}B in / ${args.upstreamBytesOut}B out)`;
+
+  const unsigned = {
+    id,
+    agentId: preflight.agentId,
+    mandateId: preflight.mandateId,
+    actionType: "tool_call.outcome",
+    tool: preflight.tool,
+    target: preflight.target,
+    costUsd: 0,
+    decision: "APPROVED" as const,
+    reason,
+    matchedRule: "outcome.sealed",
+    riskLevel: "LOW" as const,
+    timestamp,
+    policyHash,
+    rawPayload,
+  };
+  const receiptHash = hashCanonical(unsigned);
+  const signature = signReceipt({ ...unsigned, receiptHash });
+
+  await prisma.receipt.create({
+    data: {
+      id,
+      agentId: preflight.agentId,
+      mandateId: preflight.mandateId,
+      actionType: "tool_call.outcome",
+      tool: preflight.tool,
+      target: preflight.target,
+      costUsd: 0,
+      decision: "APPROVED",
+      reason,
+      matchedRule: "outcome.sealed",
+      riskLevel: "LOW",
+      timestamp: new Date(timestamp),
+      policyHash,
+      receiptHash,
+      signature,
+      rawPayload: JSON.stringify(rawPayload),
+      preflightReceiptId: preflight.id,
+      upstreamStatus: args.upstreamStatus,
+      upstreamDurationMs: args.upstreamDurationMs,
+      upstreamBytesIn: args.upstreamBytesIn,
+      upstreamBytesOut: args.upstreamBytesOut,
+      upstreamBodyHash: args.upstreamBodyHash,
+    },
+  });
+
+  void emitWebhook("receipt.created", {
+    receipt: { ...unsigned, receiptHash, signature, approval: null },
+  });
+
+  return {
+    ...unsigned,
+    receiptHash,
+    signature,
+    approval: null,
+    preflightReceiptId: preflight.id,
+    upstreamStatus: args.upstreamStatus,
+    upstreamDurationMs: args.upstreamDurationMs,
+    upstreamBytesIn: args.upstreamBytesIn,
+    upstreamBytesOut: args.upstreamBytesOut,
+    upstreamBodyHash: args.upstreamBodyHash,
+  };
 }
 
 /** Re-evaluate a snapshot stored in rawPayload to ensure the decision was correct at sealing time. */
