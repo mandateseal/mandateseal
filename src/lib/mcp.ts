@@ -64,27 +64,39 @@ export interface ToolForMcp {
   method: string;
   defaultCostUsd: number;
   enabled: boolean;
+  // v0.8.1 — per-tool JSON-Schema string (stringified). Null = permissive fallback.
+  inputSchema?: string | null;
 }
+
+const PERMISSIVE_INPUT_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  properties: {
+    body: {
+      type: "object",
+      description: "JSON body forwarded as-is to the upstream tool.",
+      additionalProperties: true,
+    },
+  },
+  additionalProperties: false,
+};
 
 /** Convert a stored Tool row into the shape MCP `tools/list` expects. */
 export function toMcpTool(t: ToolForMcp): McpTool {
-  // No per-tool inputSchema is stored yet — fall back to a permissive
-  // "any JSON object" schema. Operators can tighten this later by adding
-  // a schema column to the Tool model.
+  let inputSchema: Record<string, unknown> = PERMISSIVE_INPUT_SCHEMA;
+  if (t.inputSchema) {
+    try {
+      const parsed = JSON.parse(t.inputSchema);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        inputSchema = parsed as Record<string, unknown>;
+      }
+    } catch {
+      /* fall back to permissive on parse failure */
+    }
+  }
   return {
     name: t.name,
     description: t.description || `Proxied through MandateSeal → ${t.endpoint}`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        body: {
-          type: "object",
-          description: "JSON body forwarded as-is to the upstream tool.",
-          additionalProperties: true,
-        },
-      },
-      additionalProperties: false,
-    },
+    inputSchema,
   };
 }
 

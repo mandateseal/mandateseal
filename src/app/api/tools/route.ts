@@ -36,6 +36,8 @@ export async function POST(req: Request) {
       method: parsed.data.method,
       defaultCostUsd: parsed.data.defaultCostUsd,
       enabled: parsed.data.enabled,
+      quotaPerDay: parsed.data.quotaPerDay ?? null,
+      inputSchema: parsed.data.inputSchema ?? null,
     },
   });
   return NextResponse.json({ tool: publicTool(tool) }, { status: 201 });

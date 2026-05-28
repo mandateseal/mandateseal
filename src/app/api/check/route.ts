@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { actionRequestSchema } from "@/lib/schemas";
 import { authenticateAgent } from "@/lib/auth";
-import { evaluateAndSeal } from "@/lib/receipt";
+import { evaluateAndSeal, IdempotencyConflictError } from "@/lib/receipt";
 import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/ratelimit";
+import { hashRequestPayload, readIdempotencyKey } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,8 +46,13 @@ export async function POST(req: Request) {
     );
   }
 
+  const idempotencyKey = readIdempotencyKey(req);
+  const requestHash = idempotencyKey
+    ? hashRequestPayload({ agentId: agent.id, action: parsed.data })
+    : null;
+
   try {
-    const receipt = await evaluateAndSeal(parsed.data);
+    const receipt = await evaluateAndSeal(parsed.data, { idempotencyKey, requestHash });
     return NextResponse.json({
       decision: receipt.decision,
       reason: receipt.reason,
@@ -55,6 +61,12 @@ export async function POST(req: Request) {
       receipt,
     });
   } catch (err) {
+    if (err instanceof IdempotencyConflictError) {
+      return NextResponse.json(
+        { error: err.message, code: "IDEMPOTENCY_CONFLICT" },
+        { status: 409 },
+      );
+    }
     const msg = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: msg }, { status: 400 });
   }

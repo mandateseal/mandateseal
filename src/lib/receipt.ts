@@ -47,6 +47,82 @@ export interface ReceiptRecord {
   upstreamBodyHash?: string | null;
 }
 
+/**
+ * v0.8.1 — idempotency conflict. Thrown when the caller reuses an
+ * Idempotency-Key with a different request body. The route layer catches
+ * this and maps it to HTTP 409.
+ */
+export class IdempotencyConflictError extends Error {
+  constructor(public readonly agentId: string, public readonly key: string) {
+    super(`Idempotency-Key "${key}" already used for agent ${agentId} with a different request`);
+    this.name = "IdempotencyConflictError";
+  }
+}
+
+function fromPersistedReceipt(r: {
+  id: string;
+  agentId: string;
+  mandateId: string;
+  actionType: string;
+  tool: string;
+  target: string;
+  costUsd: number;
+  decision: string;
+  reason: string;
+  matchedRule: string;
+  riskLevel: string;
+  timestamp: Date;
+  policyHash: string;
+  receiptHash: string;
+  signature: string;
+  rawPayload: string;
+  chain: string | null;
+  wallet: string | null;
+  token: string | null;
+  amount: string | null;
+  txValueUsd: number | null;
+  recipient: string | null;
+  contractAddress: string | null;
+  functionSelector: string | null;
+  txHash: string | null;
+}): ReceiptRecord {
+  let parsed: Record<string, unknown> = {};
+  try {
+    const j = JSON.parse(r.rawPayload);
+    if (j && typeof j === "object" && !Array.isArray(j)) parsed = j as Record<string, unknown>;
+  } catch {
+    /* keep empty */
+  }
+  return {
+    id: r.id,
+    agentId: r.agentId,
+    mandateId: r.mandateId,
+    actionType: r.actionType,
+    tool: r.tool,
+    target: r.target,
+    costUsd: r.costUsd,
+    decision: r.decision as PolicyDecision["decision"],
+    reason: r.reason,
+    matchedRule: r.matchedRule,
+    riskLevel: r.riskLevel as PolicyDecision["riskLevel"],
+    timestamp: r.timestamp.toISOString(),
+    policyHash: r.policyHash,
+    receiptHash: r.receiptHash,
+    signature: r.signature,
+    rawPayload: parsed,
+    approval: null,
+    chain: r.chain,
+    wallet: r.wallet,
+    token: r.token,
+    amount: r.amount,
+    txValueUsd: r.txValueUsd,
+    recipient: r.recipient,
+    contractAddress: r.contractAddress,
+    functionSelector: r.functionSelector,
+    txHash: r.txHash,
+  };
+}
+
 function cryptoFieldsOf(action: ActionRequest): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (action.chain !== undefined) out.chain = action.chain;
@@ -66,8 +142,48 @@ function cryptoFieldsOf(action: ActionRequest): Record<string, unknown> {
  *
  * The mandate snapshot used for the decision is included in rawPayload so an
  * auditor can reproduce the verdict even after the live mandate has been edited.
+ *
+ * v0.8.1 — accepts optional `idempotencyKey` + `requestHash`. When the
+ * same (agentId, key) appears with the same request hash, the prior sealed
+ * receipt is returned verbatim (no re-evaluation, no DB write). A key reuse
+ * with a different hash throws IdempotencyConflictError.
  */
-export async function evaluateAndSeal(action: ActionRequest): Promise<ReceiptRecord> {
+export async function evaluateAndSeal(
+  action: ActionRequest,
+  opts: { idempotencyKey?: string | null; requestHash?: string | null } = {},
+): Promise<ReceiptRecord> {
+  const result = await evaluateAndSealWithMeta(action, opts);
+  return result.receipt;
+}
+
+/**
+ * Same as evaluateAndSeal but also reports whether the response came from
+ * the idempotency cache. Proxy + MCP routes use this so they can skip the
+ * upstream call on a replay hit.
+ */
+export async function evaluateAndSealWithMeta(
+  action: ActionRequest,
+  opts: { idempotencyKey?: string | null; requestHash?: string | null } = {},
+): Promise<{ receipt: ReceiptRecord; cached: boolean }> {
+  // v0.8.1 — idempotency replay check. Done BEFORE policy evaluation so a
+  // retry costs only one DB read.
+  if (opts.idempotencyKey) {
+    const existing = await prisma.receipt.findUnique({
+      where: {
+        agentId_idempotencyKey: {
+          agentId: action.agentId,
+          idempotencyKey: opts.idempotencyKey,
+        },
+      },
+    });
+    if (existing) {
+      if (existing.requestHash && opts.requestHash && existing.requestHash !== opts.requestHash) {
+        throw new IdempotencyConflictError(action.agentId, opts.idempotencyKey);
+      }
+      return { receipt: fromPersistedReceipt(existing), cached: true };
+    }
+  }
+
   const mandate = action.mandateId
     ? await prisma.mandate.findUnique({ where: { id: action.mandateId } })
     : await prisma.mandate.findFirst({
@@ -98,6 +214,34 @@ export async function evaluateAndSeal(action: ActionRequest): Promise<ReceiptRec
       from: startOfTodayUtc(),
     });
     decision = enforceDailyBudget(decision, action, snapshot, todayUsd);
+  }
+
+  // v0.8.1 — per-tool daily quota. Only checks when the action targets a
+  // registered Tool with quotaPerDay set, and the base decision is still
+  // APPROVED. Cheap COUNT, indexed by (agentId, timestamp).
+  if (decision.decision === "APPROVED") {
+    const tool = await prisma.tool.findFirst({
+      where: { name: action.tool, enabled: true, quotaPerDay: { not: null } },
+      select: { id: true, name: true, quotaPerDay: true },
+    });
+    if (tool?.quotaPerDay) {
+      const usedToday = await prisma.receipt.count({
+        where: {
+          agentId: action.agentId,
+          tool: tool.name,
+          decision: "APPROVED",
+          timestamp: { gte: startOfTodayUtc() },
+        },
+      });
+      if (usedToday >= tool.quotaPerDay) {
+        decision = {
+          decision: "BLOCKED",
+          reason: `Tool "${tool.name}" daily quota ${tool.quotaPerDay} reached (used ${usedToday}).`,
+          matchedRule: `tool.quotaPerDay`,
+          riskLevel: "MEDIUM",
+        };
+      }
+    }
   }
 
   const id = randomId("rct");
@@ -177,6 +321,8 @@ export async function evaluateAndSeal(action: ActionRequest): Promise<ReceiptRec
       contractAddress: action.contractAddress ?? null,
       functionSelector: action.functionSelector ?? null,
       txHash: action.txHash ?? null,
+      idempotencyKey: opts.idempotencyKey ?? null,
+      requestHash: opts.requestHash ?? null,
     },
   });
 
@@ -216,7 +362,7 @@ export async function evaluateAndSeal(action: ActionRequest): Promise<ReceiptRec
     if (approval) void emitWebhook("approval.requested", { receipt: sealedReceipt, approval });
   }
 
-  return sealedReceipt;
+  return { receipt: sealedReceipt, cached: false };
 }
 
 interface VerifyInput {

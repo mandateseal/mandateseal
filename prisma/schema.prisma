@@ -109,6 +109,11 @@ model Receipt {
   upstreamBytesIn    Int?
   upstreamBytesOut   Int?
   upstreamBodyHash   String?
+  // v0.8.1 — idempotency. (agentId, idempotencyKey) is unique so a caller
+  // can safely retry the same logical request. requestHash lets the server
+  // 409 when the same key is reused with a different request body.
+  idempotencyKey     String?
+  requestHash        String?
 
   agent     Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
   mandate   Mandate   @relation(fields: [mandateId], references: [id], onDelete: Cascade)
@@ -120,6 +125,7 @@ model Receipt {
   @@index([timestamp])
   @@index([anchorBatchId])
   @@index([preflightReceiptId])
+  @@unique([agentId, idempotencyKey])
 }
 
 model AnchorBatch {
@@ -182,6 +188,11 @@ model Tool {
   method          String   @default("POST")    // HTTP method to use on upstream
   defaultCostUsd  Float    @default(0)          // assumed cost per invocation
   enabled         Boolean  @default(true)
+  // v0.8.1 — per-tool quota (UTC daily window) + MCP inputSchema.
+  // quotaPerDay null = unlimited; inputSchema null = MCP falls back to a
+  // permissive "any JSON" schema.
+  quotaPerDay     Int?
+  inputSchema     String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

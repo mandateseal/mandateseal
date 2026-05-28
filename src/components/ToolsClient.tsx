@@ -14,6 +14,8 @@ export function ToolsClient({ initial }: { initial: ToolView[] }) {
   const [description, setDescription] = useState("");
   const [method, setMethod] = useState<(typeof METHODS)[number]>("POST");
   const [costUsd, setCostUsd] = useState("0");
+  const [quotaPerDay, setQuotaPerDay] = useState("");
+  const [inputSchema, setInputSchema] = useState("");
   const [busy, setBusy] = useState<"create" | string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,6 +24,8 @@ export function ToolsClient({ initial }: { initial: ToolView[] }) {
     setBusy("create");
     setError(null);
     try {
+      const quota = quotaPerDay.trim() === "" ? null : Number(quotaPerDay);
+      const schema = inputSchema.trim() === "" ? null : inputSchema.trim();
       const res = await fetch("/api/tools", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -31,6 +35,8 @@ export function ToolsClient({ initial }: { initial: ToolView[] }) {
           description: description.trim(),
           method,
           defaultCostUsd: Number(costUsd) || 0,
+          ...(quota !== null && Number.isFinite(quota) && quota > 0 ? { quotaPerDay: quota } : {}),
+          ...(schema !== null ? { inputSchema: schema } : {}),
         }),
       });
       const data = await res.json();
@@ -43,6 +49,8 @@ export function ToolsClient({ initial }: { initial: ToolView[] }) {
       setEndpoint("");
       setDescription("");
       setCostUsd("0");
+      setQuotaPerDay("");
+      setInputSchema("");
     } finally {
       setBusy(null);
     }
@@ -113,6 +121,27 @@ export function ToolsClient({ initial }: { initial: ToolView[] }) {
             <span className="field-label">description (optional)</span>
             <input className="field-input" value={description} onChange={(e) => setDescription(e.target.value)} />
           </label>
+          <label>
+            <span className="field-label">quota per day (optional)</span>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              className="field-input"
+              placeholder="empty = unlimited"
+              value={quotaPerDay}
+              onChange={(e) => setQuotaPerDay(e.target.value)}
+            />
+          </label>
+          <label>
+            <span className="field-label">input schema · json (optional, mcp)</span>
+            <input
+              className="field-input font-tech"
+              placeholder={`{"type":"object","properties":{...}}`}
+              value={inputSchema}
+              onChange={(e) => setInputSchema(e.target.value)}
+            />
+          </label>
           {error && (
             <div className="sm:col-span-2 font-tech text-[11px] uppercase tracking-[0.18em] text-red">{error}</div>
           )}
@@ -141,6 +170,8 @@ export function ToolsClient({ initial }: { initial: ToolView[] }) {
                   <th className="px-3 py-2 label">METHOD</th>
                   <th className="px-3 py-2 label">ENDPOINT</th>
                   <th className="px-3 py-2 label text-right">COST</th>
+                  <th className="px-3 py-2 label text-right">QUOTA/DAY</th>
+                  <th className="px-3 py-2 label">SCHEMA</th>
                   <th className="px-3 py-2 label">CREATED</th>
                   <th className="px-3 py-2 label">STATUS</th>
                   <th className="px-3 py-2 label">ACTIONS</th>
@@ -156,6 +187,16 @@ export function ToolsClient({ initial }: { initial: ToolView[] }) {
                     <td className="px-3 py-2">{t.method}</td>
                     <td className="px-3 py-2 truncate max-w-[280px]">{t.endpoint}</td>
                     <td className="px-3 py-2 text-right">${t.defaultCostUsd.toFixed(2)}</td>
+                    <td className="px-3 py-2 text-right">
+                      {t.quotaPerDay ? t.quotaPerDay : <span className="text-paperMuted">∞</span>}
+                    </td>
+                    <td className="px-3 py-2">
+                      {t.inputSchema ? (
+                        <span className="text-amber text-[10px] uppercase tracking-[0.18em]">custom</span>
+                      ) : (
+                        <span className="text-paperMuted text-[10px] uppercase tracking-[0.18em]">default</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-paperMuted whitespace-nowrap">{fmtTimestamp(t.createdAt)}</td>
                     <td className={`px-3 py-2 ${t.enabled ? "text-green" : "text-paperMuted"}`}>● {t.enabled ? "enabled" : "disabled"}</td>
                     <td className="px-3 py-2 whitespace-nowrap">

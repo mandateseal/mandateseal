@@ -105,6 +105,41 @@ describe("toMcpTool", () => {
     });
     expect(mcp.description).toContain("https://ep.example.com");
   });
+
+  it("v0.8.1: parses Tool.inputSchema JSON string and overrides the permissive default", () => {
+    const customSchema = {
+      type: "object",
+      properties: { query: { type: "string" } },
+      required: ["query"],
+    };
+    const mcp = toMcpTool({
+      id: "tool_x",
+      name: "search",
+      description: "Search",
+      endpoint: "https://search.example.com",
+      method: "POST",
+      defaultCostUsd: 0,
+      enabled: true,
+      inputSchema: JSON.stringify(customSchema),
+    });
+    expect(mcp.inputSchema).toEqual(customSchema);
+  });
+
+  it("v0.8.1: falls back to permissive schema when stored inputSchema is invalid JSON", () => {
+    const mcp = toMcpTool({
+      id: "tool_x",
+      name: "search",
+      description: "",
+      endpoint: "https://e.example.com",
+      method: "POST",
+      defaultCostUsd: 0,
+      enabled: true,
+      inputSchema: "{ this is not json",
+    });
+    expect(mcp.inputSchema.type).toBe("object");
+    // Permissive default has `properties.body` block.
+    expect((mcp.inputSchema as { properties: { body?: unknown } }).properties.body).toBeDefined();
+  });
 });
 
 describe("buildInitializeResult", () => {

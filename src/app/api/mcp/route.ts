@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { authenticateAgent } from "@/lib/auth";
-import { evaluateAndSeal, sealOutcomeReceipt } from "@/lib/receipt";
+import {
+  evaluateAndSealWithMeta,
+  sealOutcomeReceipt,
+  IdempotencyConflictError,
+} from "@/lib/receipt";
 import { sha256Bytes } from "@/lib/crypto";
 import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/ratelimit";
+import { hashRequestPayload, readIdempotencyKey } from "@/lib/idempotency";
 import {
   buildInitializeResult,
   parseRpcRequest,
@@ -65,7 +70,8 @@ export async function POST(req: Request) {
   if (!parsed.ok) return NextResponse.json(parsed.res);
   const { req: rpc } = parsed;
 
-  const reply = await dispatch(rpc.method, rpc.params ?? {}, rpc.id ?? null, agent.id);
+  const idempotencyKey = readIdempotencyKey(req);
+  const reply = await dispatch(rpc.method, rpc.params ?? {}, rpc.id ?? null, agent.id, idempotencyKey);
   return NextResponse.json(reply);
 }
 
@@ -74,6 +80,7 @@ async function dispatch(
   params: Record<string, unknown>,
   id: string | number | null,
   agentId: string,
+  idempotencyKey: string | null,
 ): Promise<JsonRpcResponse> {
   switch (method) {
     case "initialize":
@@ -101,7 +108,7 @@ async function dispatch(
       if (!toolName) {
         return rpcError(id, RPC_ERRORS.INVALID_PARAMS, "tools/call requires `name`");
       }
-      return callTool(id, agentId, toolName, args);
+      return callTool(id, agentId, toolName, args, idempotencyKey);
     }
 
     default:
@@ -114,6 +121,7 @@ async function callTool(
   agentId: string,
   toolName: string,
   args: Record<string, unknown>,
+  idempotencyKey: string | null,
 ): Promise<JsonRpcResponse> {
   const tool = await prisma.tool.findFirst({
     where: { OR: [{ id: toolName }, { name: toolName }], enabled: true },
@@ -127,24 +135,41 @@ async function callTool(
   // flat object instead of nesting under `body`.
   const rawBody = (args.body && typeof args.body === "object" ? args.body : args) as Record<string, unknown>;
   const bodyBytes = new TextEncoder().encode(JSON.stringify(rawBody));
+  const requestHash = idempotencyKey
+    ? hashRequestPayload({
+        agentId,
+        toolId: tool.id,
+        method: tool.method,
+        body: sha256Bytes(bodyBytes),
+      })
+    : null;
 
   // 1. Preflight: policy decision sealed.
   let preflight;
+  let cached = false;
   try {
-    preflight = await evaluateAndSeal({
-      agentId,
-      actionType: "tool_call",
-      tool: tool.name,
-      target: tool.endpoint,
-      costUsd: tool.defaultCostUsd,
-      metadata: {
-        proxy: "mcp",
-        toolId: tool.id,
-        method: tool.method,
-        bodyBytes: bodyBytes.byteLength,
+    const result = await evaluateAndSealWithMeta(
+      {
+        agentId,
+        actionType: "tool_call",
+        tool: tool.name,
+        target: tool.endpoint,
+        costUsd: tool.defaultCostUsd,
+        metadata: {
+          proxy: "mcp",
+          toolId: tool.id,
+          method: tool.method,
+          bodyBytes: bodyBytes.byteLength,
+        },
       },
-    });
+      { idempotencyKey, requestHash },
+    );
+    preflight = result.receipt;
+    cached = result.cached;
   } catch (err) {
+    if (err instanceof IdempotencyConflictError) {
+      return rpcError(id, RPC_ERRORS.INVALID_PARAMS, err.message, { code: "IDEMPOTENCY_CONFLICT" });
+    }
     const msg = err instanceof Error ? err.message : "evaluator failed";
     return rpcError(id, RPC_ERRORS.INTERNAL_ERROR, msg);
   }
@@ -155,6 +180,40 @@ async function callTool(
       matchedRule: preflight.matchedRule,
       receiptId: preflight.id,
       receiptHash: preflight.receiptHash,
+    });
+  }
+
+  // v0.8.1 — idempotent replay. Skip upstream. Return cached preflight +
+  // cached outcome metadata so the MCP host knows the side effect was NOT
+  // re-executed but the proof chain is intact.
+  if (cached) {
+    const outcomeRow = await prisma.receipt.findFirst({
+      where: { preflightReceiptId: preflight.id },
+    });
+    return rpcResult(id, {
+      content: [
+        {
+          type: "text",
+          text:
+            `[REPLAYED] previous tool_call.outcome ${outcomeRow?.id ?? "(none)"}; ` +
+            `status ${outcomeRow?.upstreamStatus ?? "?"}; ` +
+            `bytes ${outcomeRow?.upstreamBytesIn ?? 0}; ` +
+            `hash ${outcomeRow?.upstreamBodyHash ?? "?"}`,
+        },
+      ],
+      isError: false,
+      _meta: {
+        mandateseal: {
+          cached: true,
+          preflightReceiptId: preflight.id,
+          preflightReceiptHash: preflight.receiptHash,
+          outcomeReceiptId: outcomeRow?.id ?? null,
+          outcomeReceiptHash: outcomeRow?.receiptHash ?? null,
+          upstreamStatus: outcomeRow?.upstreamStatus ?? null,
+          upstreamDurationMs: outcomeRow?.upstreamDurationMs ?? null,
+          upstreamBodySha256: outcomeRow?.upstreamBodyHash ?? null,
+        },
+      },
     });
   }
 

@@ -82,6 +82,11 @@ export default async function PublicReceiptPage({ params, searchParams }: PagePr
   }
 
   const embedSrc = `/r/${r.id}?embed=1`;
+  // v0.8.1 — derive share URLs from MANDATESEAL_BASE_URL (set on Vercel as
+  // the project's public origin). Stops social cards from pointing at
+  // `mandateseal.vercel.app` even when the deploy is on a different domain.
+  const baseUrl = process.env.MANDATESEAL_BASE_URL || "";
+  const receiptUrl = baseUrl ? `${baseUrl.replace(/\/+$/, "")}/r/${r.id}` : `/r/${r.id}`;
 
   return (
     <div className="page-container py-10 max-w-3xl">
@@ -146,7 +151,7 @@ export default async function PublicReceiptPage({ params, searchParams }: PagePr
           <a
             href={`https://twitter.com/intent/tweet?${new URLSearchParams({
               text: `${r.decision} · ${r.actionType} · ${r.matchedRule}\n\nSealed by MandateSeal:`,
-            }).toString()}&url=${encodeURIComponent(`https://mandateseal.vercel.app/r/${r.id}`)}`}
+            }).toString()}&url=${encodeURIComponent(receiptUrl)}`}
             target="_blank"
             rel="noreferrer"
             className="command-button"
@@ -156,7 +161,7 @@ export default async function PublicReceiptPage({ params, searchParams }: PagePr
           <a
             href={`https://warpcast.com/~/compose?${new URLSearchParams({
               text: `${r.decision} · ${r.actionType} · sealed by MandateSeal`,
-              "embeds[]": `https://mandateseal.vercel.app/r/${r.id}`,
+              "embeds[]": receiptUrl,
             }).toString()}`}
             target="_blank"
             rel="noreferrer"

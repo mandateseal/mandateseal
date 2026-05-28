@@ -122,15 +122,29 @@ Route agent tool calls through policy AND seal the result, two ways:
   (Claude Desktop, Claude Code, Cursor, custom) can surface the proof
   chain.
 
+Implemented in v0.8.1:
+
+- **Replay protection** — `Idempotency-Key` header on `/api/check`,
+  `/api/proxy/:tool`, and `/api/mcp` `tools/call`. Same `(agentId, key)`
+  with the same canonical request hash returns the cached receipt
+  pair; with a different hash returns HTTP 409 / RPC INVALID_PARAMS
+  `IDEMPOTENCY_CONFLICT`. The unique index `Receipt.(agentId,
+  idempotencyKey)` makes the no-duplicate guarantee race-free at the
+  DB layer.
+- **Per-tool daily quota** — `Tool.quotaPerDay`. When set, a post-engine
+  check inside `evaluateAndSeal` counts today's approved receipts for
+  `(agentId, tool)`; over quota → BLOCKED with `matchedRule:
+  "tool.quotaPerDay"`.
+- **Per-tool inputSchema** — `Tool.inputSchema` (JSON string). MCP
+  `tools/list` parses it and falls back to the permissive "any JSON"
+  schema on parse failure. ToolsClient form accepts both new fields.
+
 Remaining:
 
 - SSE streaming responses (Vercel hobby maxDuration limits the value;
   defer until we run on a long-lived host)
 - Resources + prompts (MCP capabilities beyond tools)
-- Tool quotas / per-tool rate limits separate from per-agent
-- Replay protection (idempotency keys on tool calls)
-- Per-tool `inputSchema` column so MCP hosts can validate arguments
-  client-side instead of receiving a permissive "any JSON" schema
+- Hourly / sliding-window tool quotas (today is daily only)
 
 ## v1.0 — Protocol Layer
 

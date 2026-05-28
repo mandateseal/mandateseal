@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { authenticateAgent } from "@/lib/auth";
-import { evaluateAndSeal, sealOutcomeReceipt } from "@/lib/receipt";
+import {
+  evaluateAndSealWithMeta,
+  sealOutcomeReceipt,
+  IdempotencyConflictError,
+} from "@/lib/receipt";
 import { sha256Bytes } from "@/lib/crypto";
 import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/ratelimit";
+import { hashRequestPayload, readIdempotencyKey } from "@/lib/idempotency";
+import { publicReceipt } from "@/lib/serialize";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,26 +70,77 @@ export async function POST(req: Request, { params }: { params: { tool: string } 
   const rawBody = await req.arrayBuffer();
   const upstreamContentType = req.headers.get("content-type") ?? "application/json";
 
-  // Seal a preflight receipt that captures this proxy attempt.
-  let receipt;
-  try {
-    receipt = await evaluateAndSeal({
-      agentId: agent.id,
-      actionType: "tool_call",
-      tool: tool.name,
-      target: tool.endpoint,
-      costUsd: tool.defaultCostUsd,
-      metadata: {
-        proxy: true,
+  const idempotencyKey = readIdempotencyKey(req);
+  const requestBodyHash = sha256Bytes(rawBody);
+  const requestHash = idempotencyKey
+    ? hashRequestPayload({
+        agentId: agent.id,
         toolId: tool.id,
         method: tool.method,
+        body: requestBodyHash,
         contentType: upstreamContentType,
-        bodyBytes: rawBody.byteLength,
+      })
+    : null;
+
+  // Seal a preflight receipt that captures this proxy attempt.
+  let receipt;
+  let cached = false;
+  try {
+    const result = await evaluateAndSealWithMeta(
+      {
+        agentId: agent.id,
+        actionType: "tool_call",
+        tool: tool.name,
+        target: tool.endpoint,
+        costUsd: tool.defaultCostUsd,
+        metadata: {
+          proxy: true,
+          toolId: tool.id,
+          method: tool.method,
+          contentType: upstreamContentType,
+          bodyBytes: rawBody.byteLength,
+        },
       },
-    });
+      { idempotencyKey, requestHash },
+    );
+    receipt = result.receipt;
+    cached = result.cached;
   } catch (err) {
+    if (err instanceof IdempotencyConflictError) {
+      return NextResponse.json(
+        { error: err.message, code: "IDEMPOTENCY_CONFLICT" },
+        { status: 409 },
+      );
+    }
     const msg = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: msg }, { status: 400 });
+  }
+
+  // v0.8.1 — idempotent replay: skip the upstream call entirely and return
+  // the cached preflight + cached outcome metadata. Caller knows the
+  // upstream side effect was NOT re-executed.
+  if (cached) {
+    const outcomeRow = await prisma.receipt.findFirst({
+      where: { preflightReceiptId: receipt.id },
+    });
+    const outcomeView = outcomeRow ? publicReceipt(outcomeRow) : null;
+    return NextResponse.json(
+      {
+        cached: true,
+        decision: receipt.decision,
+        receipt,
+        outcome: outcomeView,
+      },
+      {
+        status: 200,
+        headers: {
+          "x-mandateseal-receipt": receipt.id,
+          "x-mandateseal-decision": receipt.decision,
+          "x-mandateseal-cached": "1",
+          ...(outcomeRow?.id ? { "x-mandateseal-outcome-receipt": outcomeRow.id } : {}),
+        },
+      },
+    );
   }
 
   if (receipt.decision !== "APPROVED") {
