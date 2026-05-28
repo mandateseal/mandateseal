@@ -3,6 +3,11 @@
 > **Approve before. Prove after.**
 > The permission and proof layer for autonomous crypto agents — wallet mandates before every onchain action, signed receipts after, merkle batches anchored on Base.
 
+**Try it in 30 seconds:**
+- **Live demo:** https://mandateseal.vercel.app/playground — scripted agent attempts 8 onchain actions, MandateSeal evaluates each live
+- **MCP server:** point Claude Desktop / Claude Code / Cursor at `https://mandateseal.vercel.app/api/mcp` ([config snippet](#mcp-server-claude-desktop--code--cursor))
+- **Public receipt:** every decision gets a shareable, verifiable page — e.g. `https://mandateseal.vercel.app/r/[id]` (1200×630 OG image + iframe embed + Base Sepolia anchor link)
+
 ```
 AGENT WANTS TO ACT  (transfer, swap, contract_call, …)
         │
