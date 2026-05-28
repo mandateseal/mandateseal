@@ -1,157 +1,111 @@
 # MandateSeal — Launch Kit
 
-Copy-paste-ready artifacts for launching MandateSeal publicly.
-Each block has been written to fit the platform's character limit
-and lead with the strongest hook for that audience.
+Launch is **Farcaster-first**, Bankr-aware. The audience is people building or
+trusting autonomous crypto agents — bots that hold wallets, trade, swap, vote,
+and (today) operate on pure prompt-faith.
+
+The narrative: **Bankr executes. MandateSeal proves what was allowed to execute.**
+The two are paired, not competing.
+
+Order of operations:
+1. Cast the launch on Farcaster.
+2. Reply-cast to @bankr with the playground link.
+3. Mirror to X (Twitter) as the secondary channel.
+4. Drop in `/r/LocalLLaMA`, ai16z dev channel, Virtuals discord.
+5. PR the MCP server registry.
+6. Show HN last — it's the "developer crowd" beat, comes after the crypto audience hooks first.
 
 ---
 
-## Tweet thread (X / Twitter)
+## Primary: Farcaster launch cast
 
-> 1/ 🔏 Shipping MandateSeal — a permission and proof layer for autonomous crypto agents.
+> 🔏 launching mandateseal — permission + proof layer for autonomous crypto agents.
 >
-> Every action your agent attempts is checked against a wallet mandate **before** it runs, and sealed into a signed receipt **after**. Both halves verifiable from a public chain.
+> @bankr executes. mandateseal proves what was *allowed* to execute.
 >
-> Live: https://mandateseal.vercel.app
+> every agent action is checked against a wallet mandate (allowed chains / tokens / contracts, blocked recipients, tx caps, infinite-approval = blocked). receipt is Ed25519-signed, merkle-batched, anchored to base.
+>
+> play (scripted agent runs 8 onchain actions live):
+> https://mandateseal.tech/playground
+>
+> docs:
+> https://mandateseal.tech/docs
 
-> 2/ The problem: agents are getting wallets. Trading bots, DAO treasurers, MCP tool callers.
->
-> "Trust the prompt" isn't a strategy. You need:
-> – a mandate the agent *can't* talk its way around
-> – a receipt every action leaves behind
-> – proof anyone can verify
+**Reply cast** (chain it under your own launch cast):
 
-> 3/ How it works:
+> if you're running an onchain agent — bankr-driven or your own — point your MCP client at:
 >
-> POST /api/check {
->   actionType: "transfer_usdc",
->   chain: "base", token: "USDC",
->   amount: "25000000",
->   txValueUsd: 25,
->   recipient: "0xabab..."
-> }
+> https://mandateseal.tech/api/mcp
 >
-> → APPROVED / BLOCKED / NEEDS_APPROVAL
-> → Ed25519-signed receipt
-> → merkle-batched, anchored to Base
+> every tools/call now produces a preflight + outcome receipt. drainer txs blocked at the policy layer, not at the wallet.
 
-> 4/ Wallet mandates that map to how agents actually fail:
+**Optional follow-up cast** (post 24h later if traction):
+
+> first 32 sealed receipts on mandateseal.
+>
+> 3 approved (USDC transfer 25, approve $1, DAO vote)
+> 4 blocked (blocked recipient, infinite approval, off-list contract, unsupported chain)
+> 1 needs human (token swap to unknown DEX)
+>
+> all 32 anchored to base sepolia in 1 batch:
+> https://sepolia.basescan.org/tx/0xc685256d59821c539d4fe38e20c76f58b86e3d82fb259ebd1542cc212ff45448
+>
+> drainer txs aren't a model-safety problem. they're a permission problem.
+
+---
+
+## X / Twitter (secondary, condensed)
+
+> 🔏 launching MandateSeal — permission and proof layer for autonomous crypto agents.
+>
+> Bankr-style execution gets a sister tool: a mandate the agent can't talk its way around, and a sealed receipt every action leaves behind. Both verifiable from base.
+>
+> https://mandateseal.tech/playground
+
+**Thread variant** (5 tweets, condensed):
+
+> 1/ 🔏 MandateSeal — every onchain agent action gets a wallet-mandate check *before* it runs, and an Ed25519-signed receipt *after*.
+>
+> Built it because every "AI agent with a wallet" is one prompt-injection away from a drainer. "trust the LLM" is not a strategy.
+>
+> https://mandateseal.tech
+
+> 2/ The mandate maps to how agents actually fail:
 >
 > ✅ allowedChains, allowedTokens, allowedContracts
-> ✅ blockedRecipients (drainer addrs), blockedContracts
+> ✅ blockedRecipients (known drainers), blockedContracts
 > ✅ maxTxValueUsd, dailyTokenSpendUsd
 > ✅ requireApprovalForSwaps / Transfers
 > ✅ infinite token approvals → BLOCKED outright
+> ✅ unknown contract selectors → NEEDS_APPROVAL
 
-> 5/ Want to see the policy engine fire?
+> 3/ Receipts get merkle-batched and broadcast to Base. Anyone can fetch the tx, slice the calldata, and recompute the proof.
 >
-> Open the playground — a scripted autonomous agent runs 8 actions, MandateSeal evaluates each in real time:
+> No MandateSeal contact required.
 >
-> https://mandateseal.vercel.app/playground
+> Latest batch (21 receipts):
+> https://sepolia.basescan.org/tx/0xc685256d59821c539d4fe38e20c76f58b86e3d82fb259ebd1542cc212ff45448
 
-> 6/ MandateSeal is an MCP server too.
+> 4/ Also an MCP server. Point Claude Desktop / Code / Cursor at /api/mcp — every tools/call gets sealed.
 >
-> Point Claude Desktop / Claude Code / Cursor at https://mandateseal.vercel.app/api/mcp — every tools/call gets two sealed receipts (preflight + outcome) and the receipt ids flow back via _meta.
->
-> Sample config in the docs.
+> The agent's actions become a public, verifiable trail without giving up the model autonomy.
 
-> 7/ Receipts get bundled into merkle batches; each root broadcast to Base as a 0-value tx.
->
-> Want to verify a receipt? Fetch the tx, slice the calldata, recompute.
-> No MandateSeal contact needed.
->
-> Latest batch: https://sepolia.basescan.org/tx/0xc685256d59821c539d4fe38e20c76f58b86e3d82fb259ebd1542cc212ff45448
-
-> 8/ What's NOT in v0.8.1:
->
-> ❌ tokens / coin (not yet — product-market-fit first)
-> ❌ multi-tenant workspaces (v1.0)
-> ❌ MandateSeal-signed tx broadcasting (caller still signs)
-> ❌ smart-contract-deployed verifier (just receipts for now)
-
-> 9/ Try it:
-> – playground: https://mandateseal.vercel.app/playground
-> – docs:       https://mandateseal.vercel.app/docs
-> – source:     https://github.com/mandateseal/mandateseal
+> 5/ Try it cold (zero setup):
+> https://mandateseal.tech/playground
 >
 > 🔏 approve before. prove after.
 
 ---
 
-## Single tweet (high-density variant)
+## /r/LocalLLaMA, ai16z, Virtuals (community drops)
 
-> 🔏 MandateSeal: permission + proof layer for autonomous crypto agents.
+Short, no preamble:
+
+> built mandateseal — a permission + proof layer for autonomous crypto agents. wallet mandate before each action, signed receipt after, merkle-anchored to base.
 >
-> Wallet mandates → preflight check → signed receipt → merkle batch → Base anchor.
+> also an MCP server. plug claude code / cursor in: https://mandateseal.tech/api/mcp
 >
-> Also an MCP server — point Claude Code at /api/mcp.
->
-> Play: https://mandateseal.vercel.app/playground
-
----
-
-## Farcaster cast
-
-> 🔏 launching MandateSeal — a permission + proof layer for autonomous crypto agents.
->
-> agent attempts onchain action → MandateSeal checks against wallet mandate (chains, tokens, contracts, recipients, tx caps, approval gates) → returns APPROVED/BLOCKED/NEEDS_APPROVAL → Ed25519-signed receipt → merkle-anchored to Base.
->
-> also an MCP server. Claude Code / Cursor / Claude Desktop plug straight in.
->
-> playground (scripted agent attempts 8 actions live):
-> https://mandateseal.vercel.app/playground
->
-> docs:
-> https://mandateseal.vercel.app/docs
-
----
-
-## Show HN
-
-Title: **Show HN: MandateSeal — Permission and proof layer for autonomous crypto agents**
-
-Body:
-
-```
-Hey HN — I built MandateSeal because every "AI agent with a wallet" project I
-saw was one prompt-injection away from a drainer. The pattern always devolves
-into "trust the LLM not to do bad things."
-
-MandateSeal is a gateway that sits between the agent and the chain. Before any
-onchain action, the agent presents it to MandateSeal; the mandate engine
-returns APPROVED / BLOCKED / NEEDS_APPROVAL with a signed receipt. Receipts
-get merkle-batched and broadcast to Base, so anyone can verify what the
-agent was allowed to do without trusting MandateSeal itself.
-
-Stack: Next.js 14 + Postgres + Ed25519 + viem. ~150 unit tests, fully
-open source.
-
-What's there:
-- Wallet mandates (chains, tokens, contracts, recipients, tx caps,
-  approval gates, infinite-approval blocked outright)
-- Onchain anchors on Base Sepolia (live; first 4 batches anchored)
-- MCP server adapter — point Claude Desktop / Claude Code / Cursor at
-  /api/mcp and every tool call gets sealed
-- Public receipt explorer with dynamic OG images
-- Agent reputation scoring (volume + anchored ratio + approval² +
-  block penalty + longevity + recency)
-- Idempotency / replay protection on every mutating endpoint
-- Rate limiting, per-tool quotas, SIWE wallet auth
-
-What's NOT there:
-- Token / coin (deliberately deferred — PMF first)
-- Multi-tenant workspaces (v1.0)
-- MandateSeal-signed tx broadcasting (caller still signs and broadcasts)
-- Solidity verifier contract
-
-Live: https://mandateseal.vercel.app
-Playground (zero setup): https://mandateseal.vercel.app/playground
-Repo: https://github.com/mandateseal/mandateseal
-
-Happy to answer questions on the policy engine, the receipt format,
-the MCP integration, or why I think token-launch-first is the wrong
-order for trust infra.
-```
+> playground: https://mandateseal.tech/playground
 
 ---
 
@@ -165,7 +119,7 @@ For PR against [modelcontextprotocol/servers](https://github.com/modelcontextpro
     Permission and proof layer for autonomous crypto agents.
     Every tools/call is gated by a wallet mandate and produces two
     Ed25519-signed receipts (preflight + outcome), merkle-anchored to Base.
-  url: https://mandateseal.vercel.app/api/mcp
+  url: https://mandateseal.tech/api/mcp
   transport: streamable-http
   auth: bearer
   source: https://github.com/mandateseal/mandateseal
@@ -180,7 +134,7 @@ Sample `claude_desktop_config.json`:
   "mcpServers": {
     "mandateseal": {
       "transport": "http",
-      "url": "https://mandateseal.vercel.app/api/mcp",
+      "url": "https://mandateseal.tech/api/mcp",
       "headers": {
         "Authorization": "Bearer msk_..."
       }
@@ -191,34 +145,89 @@ Sample `claude_desktop_config.json`:
 
 ---
 
+## Show HN (later, after crypto audience hits)
+
+Title: **Show HN: MandateSeal — Permission and proof layer for autonomous crypto agents**
+
+Body:
+
+```
+Hey HN — every "AI agent with a wallet" project I saw was one prompt-injection
+away from a drainer. The fix pattern always devolved into "trust the LLM."
+
+MandateSeal is a gateway that sits between the agent and the chain. Before any
+onchain action the agent presents it; the mandate engine returns
+APPROVED / BLOCKED / NEEDS_APPROVAL with a signed receipt. Receipts get
+merkle-batched and broadcast to Base, so anyone can verify what the agent
+was allowed to do without trusting MandateSeal itself.
+
+Stack: Next.js 14 + Postgres + Ed25519 + viem. ~150 unit tests. Open source.
+
+What's there:
+- Wallet mandates (chains, tokens, contracts, recipients, tx caps,
+  approval gates, infinite-approval blocked outright)
+- Onchain anchors on Base Sepolia (live; 4 batches anchored)
+- MCP server adapter — Claude Desktop / Claude Code / Cursor connect
+  directly, every tool call sealed
+- Public receipt explorer with dynamic 1200×630 OG image per receipt
+- Agent reputation scoring
+- Idempotency / replay protection, rate limiting, per-tool quotas,
+  SIWE wallet auth for the dashboard
+
+What's NOT there:
+- Token / coin (deliberately deferred until PMF visible)
+- Multi-tenant workspaces (v1.0)
+- MandateSeal-signed tx broadcasting (caller still signs)
+- Solidity verifier contract
+
+Live: https://mandateseal.tech
+Playground (zero setup): https://mandateseal.tech/playground
+Repo: https://github.com/mandateseal/mandateseal
+
+Happy to answer questions on the policy engine, receipt format,
+MCP integration, or why token-launch-first is the wrong order
+for trust infra.
+```
+
+---
+
 ## Launch checklist
 
-Day-of:
+**Pre-flight** (do all of these green before pressing publish anywhere):
 
-- [ ] Hit publish on the X thread (above)
-- [ ] Mirror to Farcaster (the single cast variant)
-- [ ] Submit Show HN — use the title verbatim, body slightly tightened if needed
-- [ ] Open PR against modelcontextprotocol/servers with the registry entry
-- [ ] Post a short cast in the right places: ai16z dev channel, Virtuals discord,
-      Bittensor subnet operators forum, /r/LocalLLaMA (link the playground)
-- [ ] Watch /receipts on the live deploy — first wave of curious clicks should
-      generate real preflight rows you can screenshot for follow-up posts
+```bash
+curl -s https://mandateseal.tech                            # 200
+curl -s https://mandateseal.tech/api/key.pub                # 200, returns Ed25519 PEM
+curl -s https://mandateseal.tech/api/mcp                    # 200 health JSON
+curl -s -o /dev/null -w "%{http_code}\n" https://mandateseal.tech/playground          # 200
+curl -s -o /dev/null -w "%{http_code}\n" https://mandateseal.tech/docs                # 200
+curl -s -o /dev/null -w "%{http_code}\n" https://mandateseal.tech/a/agent_atlas_01    # 200
+curl -s -o /dev/null -w "%{http_code}\n" https://mandateseal.tech/r/rct_443d72ab67197428732c                  # 200
+curl -s -o /dev/null -w "%{http_code}\n" https://mandateseal.tech/r/rct_443d72ab67197428732c/opengraph-image  # 200 (image/png)
+```
 
-Day-after:
+**Order of operations (Farcaster-first):**
 
-- [ ] If the thread gets traction, drop a follow-up tweet with a specific
-      receipt URL — e.g. "here's the OG image rendering on Twitter for a
-      blocked drainer attempt: https://mandateseal.vercel.app/r/rct_..."
-- [ ] Reply to every serious question with a link to the matching /docs
-      section rather than retyping
-- [ ] If the MCP showcase PR is accepted, retweet the merge
+1. ☐ Cast the Farcaster launch (block above).
+2. ☐ Reply-cast with @bankr mention + playground link.
+3. ☐ Pin both casts on your Farcaster profile.
+4. ☐ X primary tweet (single, condensed).
+5. ☐ X thread (5-tweet variant) under the primary as a reply chain.
+6. ☐ Drop the short community pitch in: r/LocalLLaMA, ai16z dev channel,
+     Virtuals discord, Bittensor subnet operators forum.
+7. ☐ PR against modelcontextprotocol/servers with the registry entry.
+8. ☐ Wait ~24h. If Farcaster + X picked up traction:
+     - cast follow-up with concrete numbers (32 receipts, batch anchor link)
+     - submit Show HN
+9. ☐ Reply to every serious question with a link to the matching
+     /docs section, not retyped.
 
-Pre-flight verification (do these before pressing publish on anything):
+**Token positioning when asked:**
 
-- [ ] `curl https://mandateseal.vercel.app/api/key.pub` returns the Ed25519 PEM
-- [ ] `curl https://mandateseal.vercel.app/api/mcp` returns the health JSON
-- [ ] /playground loads + the "PLAY" sequence completes without errors
-- [ ] /r/[any-existing-receipt-id] renders with the OG image preview alive
-- [ ] /a/agent_atlas_01 shows a non-NEW reputation tier
-- [ ] Latest anchor batch's BaseScan link still resolves
-- [ ] Demo API key still works against /api/check
+The pitch when someone asks "are you launching a token?":
+
+> Not yet — bankr already has execution-side fee gating, and the trust
+> layer needs to earn an audit trail before it earns an economic layer.
+> Once mandateseal has visible adoption, the natural token utility is
+> paying for anchor gas + per-receipt fees, with the bankr fee gate as
+> the primary access path. Two-product story, one economy.

@@ -30,7 +30,7 @@ The 5 scripted tasks cover all three outcomes:
 Against the hosted MandateSeal:
 
 ```bash
-MANDATESEAL_URL=https://mandateseal.vercel.app \
+MANDATESEAL_URL=https://mandateseal.tech \
 MANDATESEAL_API_KEY=msk_demo_9208ef5a720cb016e980823de1b04425a42e891c \
 npm run example:research-agent
 ```
@@ -50,7 +50,7 @@ The receipts created by this run show up in the dashboard at
 
 ```
 MandateSeal research-agent example
-  base   : https://mandateseal.vercel.app
+  base   : https://mandateseal.tech
   agent  : agent_atlas_01
 
 [01] search github for autonomous-agent papers ... ✓ APPROVED  rct_xxxxxxxxxxxxxxxxxxxx

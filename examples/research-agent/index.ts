@@ -5,7 +5,7 @@
 // model-decided actions.
 //
 // Run:
-//   MANDATESEAL_URL=https://mandateseal.vercel.app \
+//   MANDATESEAL_URL=https://mandateseal.tech \
 //   MANDATESEAL_API_KEY=msk_demo_... \
 //   npx tsx examples/research-agent/index.ts
 

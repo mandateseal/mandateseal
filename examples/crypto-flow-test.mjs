@@ -4,11 +4,11 @@
 //   3. POST /api/verify with the receipt id → expect { valid: true }
 //
 // Usage:
-//   MANDATESEAL_URL=https://mandateseal.vercel.app \
+//   MANDATESEAL_URL=https://mandateseal.tech \
 //   MANDATESEAL_API_KEY=msk_demo_... \
 //   node examples/crypto-flow-test.mjs
 
-const BASE = process.env.MANDATESEAL_URL ?? "https://mandateseal.vercel.app";
+const BASE = process.env.MANDATESEAL_URL ?? "https://mandateseal.tech";
 const KEY = process.env.MANDATESEAL_API_KEY ?? "";
 const AGENT = "agent_atlas_01";
 const MANDATE = "mandate_research_budget_v1";
