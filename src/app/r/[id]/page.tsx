@@ -83,8 +83,8 @@ export default async function PublicReceiptPage({ params, searchParams }: PagePr
 
   const embedSrc = `/r/${r.id}?embed=1`;
   // v0.8.1 — derive share URLs from MANDATESEAL_BASE_URL (set on Vercel as
-  // the project's public origin). Stops social cards from pointing at
-  // `mandateseal.vercel.app` even when the deploy is on a different domain.
+  // the project's public origin, e.g. https://mandateseal.tech). Falls back
+  // to relative paths in dev so localhost share intents still render.
   const baseUrl = process.env.MANDATESEAL_BASE_URL || "";
   const receiptUrl = baseUrl ? `${baseUrl.replace(/\/+$/, "")}/r/${r.id}` : `/r/${r.id}`;
 

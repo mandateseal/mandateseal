@@ -45,3 +45,6 @@ yarn-error.log*
 .claude/
 
 .vercel
+
+# Launch kit — kept local, not pushed to GitHub until publish day
+LAUNCH.md
