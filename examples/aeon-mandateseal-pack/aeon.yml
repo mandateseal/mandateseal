@@ -1,0 +1,16 @@
+# Enable the MandateSeal-guarded distribute-tokens skill in an Aeon agent.
+# Drop this block into your aeon.yml (or merge the `skills:` entry).
+#
+# Secrets go in your Actions/.env, not here:
+#   BANKR_API_KEY        bk_...   (read-write, Wallet API enabled)
+#   MANDATESEAL_API_KEY  msk_...
+#   MANDATESEAL_URL      e.g. http://localhost:3000 (local) or your instance
+
+skills:
+  distribute-tokens-guarded:
+    enabled: true
+    # Same cadence you'd run distribute-tokens on; here, weekly payouts.
+    schedule: "0 9 * * 1"
+    # `var` is the distribution list label in memory/distributions.yml,
+    # exactly as stock distribute-tokens interprets it.
+    var: "contributors"
