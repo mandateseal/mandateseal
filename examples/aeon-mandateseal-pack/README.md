@@ -49,25 +49,22 @@ distribute-tokens lacks an *external* check for:
 |---|---|---|
 | `token: USDC/ETH (Base)` | `allowedChains` + `allowedTokens` | C3 / C4 |
 | no per-recipient ceiling | `maxTxValueUsd` | C5 |
+| no per-day spend ceiling | `dailyTokenSpendUsd` (sums today's APPROVED `txValueUsd`) | v0.8.2 |
 | no never-pay list | `blockedRecipients` | C1 |
 | no approval gate | `requireApprovalForTransfers` → human queue | C9 |
 | local idempotency state file | server-side `Idempotency-Key` (cross-run/host) | v0.8.1 |
 
 ## Honest gaps (what is *not* wired yet)
 
-Founder-to-founder, so there's no overselling — three things would make the fit
-even tighter, and none is built today:
+Founder-to-founder, so there's no overselling — two things would make the fit
+even tighter, and neither is built today (a per-day transferred-value ceiling,
+`dailyTokenSpendUsd`, **is** now enforced — see the table above):
 
-1. **Daily aggregate value ceiling.** The mandate has a `dailyTokenSpendUsd`
-   field, but the engine's daily cap (`enforceDailyBudget`) currently sums
-   `costUsd`, not `txValueUsd` — so a per-day *transferred-value* ceiling is
-   declared but not enforced. For batch payouts that's the most natural cap;
-   wiring it is small.
-2. **Recipient allow-list.** Today there's a block-list (`blockedRecipients`)
+1. **Recipient allow-list.** Today there's a block-list (`blockedRecipients`)
    but no allow-list. For dynamic contributor lists, block-list + per-tx cap +
    approval is arguably the right model — but an allow-list is a small add if a
    distribution should only ever pay a fixed set.
-3. **Graded transfer approval.** `requireApprovalForTransfers` is all-or-nothing
+2. **Graded transfer approval.** `requireApprovalForTransfers` is all-or-nothing
    (every transfer → human queue). A value band (auto ≤ $X, approve ≤ $Y, block
    > $Y) maps perfectly onto payouts and is a small rule addition.
 

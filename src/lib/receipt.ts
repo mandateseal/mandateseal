@@ -4,7 +4,13 @@ import { toMandateSnapshot } from "./mandate";
 import { evaluatePolicy, type MandateSnapshot, type PolicyDecision } from "./policy";
 import type { ActionRequest } from "./schemas";
 import { createPendingApproval, toApprovalView, type ApprovalView } from "./approval";
-import { sumApprovedCost, startOfTodayUtc, enforceDailyBudget } from "./spend";
+import {
+  sumApprovedCost,
+  sumApprovedTxValue,
+  startOfTodayUtc,
+  enforceDailyBudget,
+  enforceDailyTokenSpend,
+} from "./spend";
 import { emit as emitWebhook } from "./webhook";
 
 export interface ReceiptRecord {
@@ -214,6 +220,22 @@ export async function evaluateAndSealWithMeta(
       from: startOfTodayUtc(),
     });
     decision = enforceDailyBudget(decision, action, snapshot, todayUsd);
+  }
+
+  // v0.8.2 — daily token-spend enforcement (post-engine, requires DB
+  // aggregation). Bounds total onchain value moved per UTC day — the natural
+  // ceiling for batch payouts. Same skip logic as the budget rule: only when
+  // still APPROVED, a cap is set, and this action actually moves value.
+  if (
+    decision.decision === "APPROVED" &&
+    snapshot.dailyTokenSpendUsd > 0 &&
+    (action.txValueUsd ?? 0) > 0
+  ) {
+    const todayTokenUsd = await sumApprovedTxValue({
+      agentId: action.agentId,
+      from: startOfTodayUtc(),
+    });
+    decision = enforceDailyTokenSpend(decision, action, snapshot, todayTokenUsd);
   }
 
   // v0.8.1 — per-tool daily quota. Only checks when the action targets a

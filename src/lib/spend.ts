@@ -41,6 +41,39 @@ export function enforceDailyBudget(
 }
 
 /**
+ * Pure-function daily token-spend rule. Returns a BLOCKED decision if the
+ * proposed transfer would push the agent's same-day APPROVED transferred
+ * value over `dailyTokenSpendUsd`. Otherwise returns the decision unchanged.
+ *
+ * Mirrors enforceDailyBudget, but bounds onchain *value moved* (txValueUsd)
+ * rather than API *cost* (costUsd) — the natural per-day ceiling for batch
+ * payouts. Like the budget rule it needs a DB aggregate, so it lives here and
+ * the caller fetches `todayTokenUsd`.
+ */
+export function enforceDailyTokenSpend(
+  decision: PolicyDecision,
+  action: Pick<ActionRequest, "txValueUsd">,
+  snapshot: Pick<MandateSnapshot, "dailyTokenSpendUsd">,
+  todayTokenUsd: number,
+): PolicyDecision {
+  if (decision.decision !== "APPROVED") return decision;
+  if (snapshot.dailyTokenSpendUsd <= 0) return decision;
+  const value = action.txValueUsd ?? 0;
+  if (value <= 0) return decision;
+  const projected = todayTokenUsd + value;
+  if (projected <= snapshot.dailyTokenSpendUsd) return decision;
+  return {
+    decision: "BLOCKED",
+    reason:
+      `Daily token spend $${snapshot.dailyTokenSpendUsd.toFixed(2)} would be exceeded ` +
+      `(sent today $${todayTokenUsd.toFixed(2)} + this $${value.toFixed(2)} = ` +
+      `$${projected.toFixed(2)}).`,
+    matchedRule: `dailyTokenValueUsd > dailyTokenSpendUsd`,
+    riskLevel: "HIGH",
+  };
+}
+
+/**
  * Sum of APPROVED receipt costs for one agent in a window. We only count
  * APPROVED rows because BLOCKED and NEEDS_APPROVAL actions never ran (no
  * money actually changed hands).
@@ -59,6 +92,27 @@ export async function sumApprovedCost(args: {
     _sum: { costUsd: true },
   });
   return agg._sum.costUsd ?? 0;
+}
+
+/**
+ * Sum of APPROVED transferred value (txValueUsd) for one agent in a window.
+ * Same APPROVED-only rationale as sumApprovedCost — only approved actions
+ * actually moved funds onchain.
+ */
+export async function sumApprovedTxValue(args: {
+  agentId: string;
+  from: Date;
+  to?: Date;
+}): Promise<number> {
+  const agg = await prisma.receipt.aggregate({
+    where: {
+      agentId: args.agentId,
+      decision: "APPROVED",
+      timestamp: { gte: args.from, ...(args.to ? { lt: args.to } : {}) },
+    },
+    _sum: { txValueUsd: true },
+  });
+  return agg._sum.txValueUsd ?? 0;
 }
 
 export interface AgentSpendRow {
