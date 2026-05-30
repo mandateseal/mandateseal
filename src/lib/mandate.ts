@@ -33,6 +33,7 @@ export function toMandateSnapshot(m: Mandate): MandateSnapshot {
     allowedContracts: parseList(m.allowedContracts ?? "[]"),
     blockedContracts: parseList(m.blockedContracts ?? "[]"),
     blockedRecipients: parseList(m.blockedRecipients ?? "[]"),
+    allowedRecipients: parseList(m.allowedRecipients ?? "[]"),
     maxTxValueUsd: m.maxTxValueUsd ?? 0,
     dailyTokenSpendUsd: m.dailyTokenSpendUsd ?? 0,
     requireApprovalForSwaps: m.requireApprovalForSwaps ?? false,
@@ -63,6 +64,7 @@ export function serializeListsForDb(input: Partial<{
   allowedContracts: string[];
   blockedContracts: string[];
   blockedRecipients: string[];
+  allowedRecipients: string[];
 }>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const k of [
@@ -77,6 +79,7 @@ export function serializeListsForDb(input: Partial<{
     "allowedContracts",
     "blockedContracts",
     "blockedRecipients",
+    "allowedRecipients",
   ] as const) {
     if (input[k] !== undefined) out[k] = JSON.stringify(input[k]);
   }

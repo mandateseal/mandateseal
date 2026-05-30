@@ -35,6 +35,7 @@ export const createMandateSchema = z.object({
   allowedContracts: stringArray,
   blockedContracts: stringArray,
   blockedRecipients: stringArray,
+  allowedRecipients: stringArray,
   maxTxValueUsd: z.number().nonnegative().default(0),
   dailyTokenSpendUsd: z.number().nonnegative().default(0),
   requireApprovalForSwaps: z.boolean().default(false),

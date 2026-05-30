@@ -45,6 +45,7 @@ function demoSnapshot(): MandateSnapshot {
     allowedContracts: [DEMO_DEX, DEMO_GOVERNOR],
     blockedContracts: [],
     blockedRecipients: [DEMO_RECIPIENT_BLOCKED],
+    allowedRecipients: [],
     maxTxValueUsd: 200,
     dailyTokenSpendUsd: 500,
     requireApprovalForSwaps: true,

@@ -50,10 +50,14 @@ model Mandate {
   allowedContracts             String  @default("[]")
   blockedContracts             String  @default("[]")
   blockedRecipients            String  @default("[]")
+  allowedRecipients            String  @default("[]")
   maxTxValueUsd                Float   @default(0)
   dailyTokenSpendUsd           Float   @default(0)
   requireApprovalForSwaps      Boolean @default(false)
   requireApprovalForTransfers  Boolean @default(false)
+  // v0.8.4 — owner wallet proven via signature (SIWE). Fee-gate prerequisite:
+  // only a verified ownerWallet is trusted for on-chain entitlement lookups.
+  ownerWalletVerified          Boolean @default(false)
   // v0.4 — field-level public/private policy. JSON array of field names the
   // operator wants exposed on the public /r/:id page. Null = use built-in
   // safe defaults (the current behavior — most fields public, rawPayload
@@ -67,6 +71,17 @@ model Mandate {
   receipts  Receipt[]
 
   @@index([agentId])
+}
+
+// v0.8.4 — fee-gate entitlement ledger. Prepaid credits per owner wallet:
+// `granted` accrues from FeeVault deposits (set by the deposit indexer),
+// `consumed` increments as metered paid actions run. remaining = granted − consumed.
+model Entitlement {
+  ownerWallet String   @id          // lowercased EVM address
+  granted     Float    @default(0)
+  consumed    Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Receipt {

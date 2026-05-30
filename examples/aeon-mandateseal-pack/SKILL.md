@@ -82,6 +82,7 @@ server-side so a retried batch is safe even across machines.
 | Allowed chains (Base only) | `allowedChains` | C3 |
 | Allowed tokens (USDC/ETH) | `allowedTokens` | C4 |
 | Per-transfer USD ceiling | `maxTxValueUsd` | C5 |
+| Per-day total value sent | `dailyTokenSpendUsd` | v0.8.2 |
 | Never-pay recipients | `blockedRecipients` | C1 |
 | Route every payout to a human | `requireApprovalForTransfers` | C9 |
 | Safe batch retries | `Idempotency-Key` | v0.8.1 |

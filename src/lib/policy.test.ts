@@ -25,6 +25,7 @@ const baseSnapshot: MandateSnapshot = {
   allowedContracts: [],
   blockedContracts: [],
   blockedRecipients: [],
+  allowedRecipients: [],
   maxTxValueUsd: 0,
   dailyTokenSpendUsd: 0,
   requireApprovalForSwaps: false,
@@ -221,6 +222,33 @@ describe("v0.2 — crypto policy rules", () => {
     );
     expect(d.decision).toBe("BLOCKED");
     expect(d.matchedRule).toContain("blockedRecipients");
+  });
+
+  it("C1b: allowedRecipients set and recipient not in it → BLOCKED", () => {
+    const allow = "0x" + "aa".repeat(20);
+    const d = evaluatePolicy(
+      { ...cryptoAction, recipient: "0x" + "cd".repeat(20) },
+      { ...cryptoSnap, blockedRecipients: [], allowedRecipients: [allow] },
+    );
+    expect(d.decision).toBe("BLOCKED");
+    expect(d.matchedRule).toContain("allowedRecipients");
+  });
+
+  it("C1b: recipient in allowedRecipients → not blocked by allow-list", () => {
+    const allow = "0x" + "aa".repeat(20);
+    const d = evaluatePolicy(
+      { ...cryptoAction, recipient: allow },
+      { ...cryptoSnap, blockedRecipients: [], allowedRecipients: [allow] },
+    );
+    expect(d.matchedRule).not.toContain("allowedRecipients");
+  });
+
+  it("C1b: empty allowedRecipients → rule does not fire", () => {
+    const d = evaluatePolicy(
+      { ...cryptoAction, recipient: "0x" + "cd".repeat(20) },
+      { ...cryptoSnap, blockedRecipients: [], allowedRecipients: [] },
+    );
+    expect(d.matchedRule).not.toContain("allowedRecipients");
   });
 
   it("C2: contract on block list → BLOCKED", () => {

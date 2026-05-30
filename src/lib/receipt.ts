@@ -11,6 +11,14 @@ import {
   enforceDailyBudget,
   enforceDailyTokenSpend,
 } from "./spend";
+import {
+  FEE_GATE_ENABLED,
+  FREE_DAILY_CHECKS,
+  enforceFeeGate,
+  countApprovedChecksToday,
+  creditsRemaining,
+  meterUsage,
+} from "./feegate";
 import { emit as emitWebhook } from "./webhook";
 
 export interface ReceiptRecord {
@@ -263,6 +271,20 @@ export async function evaluateAndSealWithMeta(
           riskLevel: "MEDIUM",
         };
       }
+    }
+  }
+
+  // v0.8.4 — fee-gate (token utility), dark behind FEE_GATE_ENABLED. When off,
+  // this whole block is skipped, so live behavior is unchanged. When on: each
+  // agent gets a free daily check quota; beyond it a paid action needs prepaid
+  // credits on the VERIFIED owner wallet (deposited to FeeVault), metered here.
+  if (FEE_GATE_ENABLED && decision.decision === "APPROVED") {
+    const todayChecks = await countApprovedChecksToday(action.agentId);
+    if (todayChecks >= FREE_DAILY_CHECKS) {
+      const owner = mandate.ownerWalletVerified ? mandate.ownerWallet : null;
+      const remaining = owner ? await creditsRemaining(owner) : 0;
+      decision = enforceFeeGate(decision, { overFreeQuota: true, creditsRemaining: remaining });
+      if (decision.decision === "APPROVED" && owner) await meterUsage(owner);
     }
   }
 

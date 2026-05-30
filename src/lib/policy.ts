@@ -34,6 +34,7 @@ export interface MandateSnapshot {
   allowedContracts: string[];
   blockedContracts: string[];
   blockedRecipients: string[];
+  allowedRecipients: string[];
   maxTxValueUsd: number;
   dailyTokenSpendUsd: number;
   requireApprovalForSwaps: boolean;
@@ -144,6 +145,21 @@ export function evaluatePolicy(
       decision: "BLOCKED",
       reason: `Recipient "${recipient}" is on the mandate's block list.`,
       matchedRule: `blockedRecipients ∋ "${recipient}"`,
+      riskLevel: "HIGH",
+    };
+  }
+
+  // C1b. allowedRecipients non-empty and recipient not in list. Opt-in narrow
+  // whitelist (mirror of C7) for payouts that should only ever pay a fixed set.
+  if (
+    recipient &&
+    (mandate.allowedRecipients?.length ?? 0) > 0 &&
+    !listed(mandate.allowedRecipients!, recipient)
+  ) {
+    return {
+      decision: "BLOCKED",
+      reason: `Recipient "${recipient}" is not in the mandate's allow list.`,
+      matchedRule: `allowedRecipients ∌ "${recipient}"`,
       riskLevel: "HIGH",
     };
   }
