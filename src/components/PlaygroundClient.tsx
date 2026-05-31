@@ -237,7 +237,7 @@ export function PlaygroundClient({ steps }: { steps: Step[] }) {
             </div>
             <div className="text-[12px] text-paperMuted leading-relaxed">
               In a real run, every receipt above would be persisted, bundled into a merkle batch,
-              and broadcast to Base Sepolia. Trust ends at the chain, not at this server.
+              and broadcast onchain to Base. Trust ends at the chain, not at this server.
             </div>
             <div className="flex items-center gap-2 flex-wrap pt-1">
               <Link
