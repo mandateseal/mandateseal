@@ -39,6 +39,17 @@ forge test        # test/FeeVault.t.sol — 8/8 passing
 4. Mainnet: deploy with real $SEAL CA, set treasury (multisig), flip
    `FEE_GATE_ENABLED=true` (P3) — the launch of the actual token utility.
 
+## Deployments
+
+| Network | Contract | Address | Notes |
+|---|---|---|---|
+| Base Sepolia | MockSEAL | `0x69F148495B813d15De7201769F9FDc10C060659b` | testnet stand-in |
+| Base Sepolia | FeeVault | `0xc696e35EA0242c92F8e8f08568ce290220bB5F10` | treasury = deployer |
+| Base mainnet | $SEAL (token) | `0x0590908e797a077699DEb7905De955A4425F9BA3` | real token |
+| Base mainnet | FeeVault | _(not deployed — pending review)_ | |
+
+**Testnet e2e (2026-06-01):** deposit 100 mSEAL → `depositedOf` = 100e18 → reconciler granted 100 credits. ✓
+
 ## Testnet deploy (Base Sepolia) — commands
 
 Prereqs: a deployer key funded with Base Sepolia ETH (faucet) + a Sepolia RPC.
