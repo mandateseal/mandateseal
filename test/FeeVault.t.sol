@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {FeeVault} from "../contracts/FeeVault.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {MockSEAL} from "../contracts/mocks/MockSEAL.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
@@ -12,11 +12,6 @@ interface Vm {
     function expectRevert() external;
     function expectRevert(bytes4) external;
     function expectRevert(bytes calldata) external;
-}
-
-contract MockSEAL is ERC20 {
-    constructor() ERC20("Mock SEAL", "mSEAL") {}
-    function mint(address to, uint256 amt) external { _mint(to, amt); }
 }
 
 contract FeeVaultTest {

@@ -38,3 +38,32 @@ forge test        # test/FeeVault.t.sol — 8/8 passing
 3. Review (ideally external) before any mainnet deploy.
 4. Mainnet: deploy with real $SEAL CA, set treasury (multisig), flip
    `FEE_GATE_ENABLED=true` (P3) — the launch of the actual token utility.
+
+## Testnet deploy (Base Sepolia) — commands
+
+Prereqs: a deployer key funded with Base Sepolia ETH (faucet) + a Sepolia RPC.
+Keep both local only (e.g. `.env`, gitignored). `$TREASURY`/`$OWNER` can be your
+own address; `forge`/`cast` are on the Foundry PATH (`~/.foundry/bin`).
+
+```bash
+RPC=https://sepolia.base.org   # or a dedicated Sepolia RPC
+KEY=0x<testnet-deployer-key>   # funded via a Base Sepolia faucet
+
+# 1. mock $SEAL (testnet stand-in)
+forge create contracts/mocks/MockSEAL.sol:MockSEAL --broadcast --rpc-url "$RPC" --private-key "$KEY"
+#   → MOCK=<deployed address>
+
+# 2. FeeVault(token=mock, treasury=you)
+forge create contracts/FeeVault.sol:FeeVault --broadcast --rpc-url "$RPC" --private-key "$KEY" \
+  --constructor-args "$MOCK" "$TREASURY"
+#   → VAULT=<deployed address>
+
+# 3. e2e: mint → approve → deposit → read depositedOf (expect 100e18)
+cast send "$MOCK"  "mint(address,uint256)"    "$OWNER" 1000000000000000000000 --rpc-url "$RPC" --private-key "$KEY"
+cast send "$MOCK"  "approve(address,uint256)" "$VAULT" 1000000000000000000000 --rpc-url "$RPC" --private-key "$KEY"
+cast send "$VAULT" "deposit(address,uint256)" "$OWNER"  100000000000000000000 --rpc-url "$RPC" --private-key "$KEY"
+cast call "$VAULT" "depositedOf(address)"     "$OWNER" --rpc-url "$RPC"   # → 100000000000000000000
+
+# 4. wire MandateSeal: set FEE_GATE_VAULT_ADDRESS=$VAULT, FEE_GATE_RPC_URL=$RPC,
+#    then reconcileEntitlement(owner) grants credits (granted = 100 at rate 1).
+```
