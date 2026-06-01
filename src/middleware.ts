@@ -47,6 +47,9 @@ const PROTECTED_API_GET_PATHS = [
 // proxy fall here.
 const ALWAYS_PUBLIC_API_PATHS = [
   /^\/api\/anchor\/verify$/,
+  // v0.8.5 — wallet ownership proof. The SIWE signature is the auth (you can
+  // only verify a wallet you control), so it must bypass the admin-cookie gate.
+  /^\/api\/mandates\/[^/]+\/verify-wallet$/,
 ];
 
 // /api/proxy/:tool is bearer-auth (agent calls), not admin-cookie auth — so we
