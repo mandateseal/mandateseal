@@ -41,6 +41,10 @@ yarn-error.log*
 .idea/
 .vscode/
 
+# Foundry (out/ already ignored above)
+cache/
+broadcast/
+
 # Claude Code local state
 .claude/
 
